@@ -1,0 +1,31 @@
+#!name=网易云音乐 广告拦截（域名级 · 无需 MITM）
+#!desc=仅收录通用规则集未覆盖的广告监测域
+#!category=广告拦截
+#!author=RedContritio
+#!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
+#!version=0.1.0
+#
+# Copyright 2026 RedContritio
+# SPDX-License-Identifier: Apache-2.0
+
+[Rule]
+# 三方广告监测厂商（AWAvenue 等未覆盖）
+DOMAIN,admaster.com.cn,REJECT,extended-matching,pre-matching
+DOMAIN,attri.mobi,REJECT,extended-matching,pre-matching
+DOMAIN,mmstat.com,REJECT,extended-matching,pre-matching
+DOMAIN,rtbasia.com,REJECT,extended-matching,pre-matching
+DOMAIN,hegek7.com,REJECT,extended-matching,pre-matching
+DOMAIN,adbug.cn,REJECT,extended-matching,pre-matching
+DOMAIN,gridsum.com,REJECT,extended-matching,pre-matching
+
+# 以下两条通用规则集只封了子域，未封主域；SDK 会轮换子域，故封主域
+DOMAIN,miaozhen.com,REJECT,extended-matching,pre-matching
+DOMAIN,doubleclick.net,REJECT,extended-matching,pre-matching
+
+# NCM 广告种子 SDK（包内 sd-gl.xinqiucc.com/psdk/getseeds_v2）
+DOMAIN-SUFFIX,xinqiucc.com,REJECT,extended-matching,pre-matching
+
+# 已由 AWAvenue 精确覆盖，停用该规则集时取消注释
+# DOMAIN,iadmusicmat.music.126.net,REJECT
+# DOMAIN,iad.g.163.com,REJECT
+# DOMAIN,ad.bn.netease.com,REJECT

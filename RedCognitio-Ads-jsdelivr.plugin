@@ -1,0 +1,195 @@
+#!name=RedCognitio 去广告合集（jsDelivr 镜像）
+#!desc=知乎 / 淘宝 / 网易云音乐，按应用开关；jsDelivr 镜像；需 MITM
+#!author=RedContritio
+#!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
+#!version=1.0.0
+#!date=2026-10-24 · 1.0.0
+#!loon_version=3.5.1(983)
+#!category=广告拦截
+#!type=normal
+#
+# Copyright 2026 RedContritio
+# SPDX-License-Identifier: Apache-2.0
+
+[Argument]
+zhihu_enable = switch,true,type=boolean,tag=知乎-去广告,desc=过滤广告位、推广内容与广告预加载
+zhihu_purify = switch,true,type=boolean,tag=知乎-净化,desc=隐藏首页视频、仅看当前问题、跳过会员受限回答并精简界面
+taobao_enable = switch,true,type=boolean,tag=淘宝-去广告,desc=关闭后停止淘宝开屏与 poplayer 净化
+netease_enable = switch,true,type=boolean,tag=网易云音乐-去广告,desc=关闭后停止网易云广告接口拦截
+
+# 说明：DOMAIN 级广告域规则不带开关，只封广告域，不会影响 App 正常功能。
+# 需要完全关闭某个 App 时，直接把对应开关关掉即可；广告域本身不会造成业务影响。
+
+
+[Rule]
+# QUIC 无法 MITM，不拦则本文件全部规则静默失效
+AND,((DOMAIN-SUFFIX,zhihu.com),(PROTOCOL,QUIC)),REJECT
+
+# 开屏在自有接口失败时回落三方联盟。同样用 REJECT-DICT：DROP 会让 SDK 等待超时，疑似开屏不稳定的成因
+DOMAIN-SUFFIX,pangolin-sdk-toutiao.com,REJECT-DICT,extended-matching,pre-matching
+DOMAIN-SUFFIX,pangolin-sdk-toutiao1.com,REJECT-DICT,extended-matching,pre-matching
+DOMAIN-SUFFIX,pangolin-sdk-toutiao-b.com,REJECT-DICT,extended-matching,pre-matching
+DOMAIN-SUFFIX,gdt.qq.com,REJECT-DICT,extended-matching,pre-matching
+DOMAIN-SUFFIX,tanx.com,REJECT-DICT,extended-matching,pre-matching
+
+# [实验] 443 裸 IP 广告预加载（来自 2026-10-23 18:38 日志）。
+# 80 端口已由 [Script] 回 {}；这里只封 443，避免同时封 80/443 导致页面卡死。
+# 逐条封 IP 不可靠：106.13.249.0/24 是电信 IDC，不是广告专用段，且 IP 会轮换。
+# 默认关闭；仅作为临时验证手段，确认某个 IP 就是广告源后再手动打开。
+# AND,((IP-CIDR,106.13.249.249/32),(DEST-PORT,443)),REJECT
+# AND,((IP-CIDR,106.13.249.166/32),(DEST-PORT,443)),REJECT
+# AND,((IP-CIDR,125.88.253.207/32),(DEST-PORT,443)),REJECT
+# AND,((IP-CIDR,182.61.194.9/32),(DEST-PORT,443)),REJECT
+# AND,((IP-CIDR,43.242.197.211/32),(DEST-PORT,443)),REJECT
+
+# 知乎自有广告域（AWAvenue 与 anti-AD 均未收录）
+DOMAIN,adaudit.zhihu.com,REJECT,extended-matching,pre-matching
+DOMAIN,promotion.zhihu.com,REJECT,extended-matching,pre-matching
+
+# 友盟 deeplink 归因 + 设备指纹（两套通用规则集均未收录）
+DOMAIN,deeplink.umeng.com,REJECT,extended-matching,pre-matching
+
+DOMAIN,ad.reward.net,REJECT,extended-matching,pre-matching
+
+DOMAIN-SUFFIX,kwaizt.com,REJECT,extended-matching,pre-matching
+
+# 以下由 anti-AD 等通用规则集覆盖，故不重复；停用它们时取消注释
+# DOMAIN,dsp.ads.umeng.com,REJECT
+# DOMAIN-SUFFIX,volceapplog.com,REJECT
+# DOMAIN-SUFFIX,oceanengine.com,REJECT
+# DOMAIN,log.snssdk.com,REJECT
+# DOMAIN,applog.snssdk.com,REJECT
+# DOMAIN,rtlog.snssdk.com,REJECT
+# DOMAIN,rtapplog.snssdk.com,REJECT
+# DOMAIN,ichannel.snssdk.com,REJECT
+
+# QUIC 无法 MITM，不拦则本文件全部规则与脚本静默失效
+AND,((DOMAIN-SUFFIX,taobao.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,tmall.com),(PROTOCOL,QUIC)),REJECT
+
+# 淘宝：TopShow、poplayer、HEIC 开屏兜底已改为 [Rewrite] 中按 taobao_enable 生效。
+
+
+# QUIC 无法 MITM，不拦则本文件全部规则静默失效
+AND,((DOMAIN-SUFFIX,music.163.com),(PROTOCOL,QUIC)),REJECT
+
+# 网易云音乐：广告接口已改为 [Rewrite] 中按 netease_enable 生效。
+# 下面只保留广告素材 CDN / 监测域的域名级拦截。
+
+# 素材 CDN 与曝光监测
+DOMAIN,iadmusicmat.music.126.net,REJECT,extended-matching,pre-matching
+DOMAIN,iadmusicmatvideo.music.126.net,REJECT,extended-matching,pre-matching
+DOMAIN,admusicpic.music.126.net,REJECT,extended-matching,pre-matching
+DOMAIN,iadmat.nosdn.127.net,REJECT,extended-matching,pre-matching
+DOMAIN,iadmatapk.nosdn.127.net,REJECT,extended-matching,pre-matching
+DOMAIN,iad.service.163.org,REJECT,extended-matching,pre-matching
+
+# NCM 广告种子 SDK（包内 sd-gl.xinqiucc.com/psdk/getseeds_v2）
+DOMAIN-SUFFIX,xinqiucc.com,REJECT,extended-matching,pre-matching
+
+# eapi 直连 IP 已改为 [Rewrite] 中按 netease_enable 生效。
+
+
+# 三方广告监测厂商（AWAvenue 等未覆盖）
+DOMAIN,admaster.com.cn,REJECT,extended-matching,pre-matching
+DOMAIN,attri.mobi,REJECT,extended-matching,pre-matching
+DOMAIN,mmstat.com,REJECT,extended-matching,pre-matching
+DOMAIN,rtbasia.com,REJECT,extended-matching,pre-matching
+DOMAIN,hegek7.com,REJECT,extended-matching,pre-matching
+DOMAIN,adbug.cn,REJECT,extended-matching,pre-matching
+DOMAIN,gridsum.com,REJECT,extended-matching,pre-matching
+
+# 以下两条通用规则集只封了子域，未封主域；SDK 会轮换子域，故封主域
+DOMAIN,miaozhen.com,REJECT,extended-matching,pre-matching
+DOMAIN,doubleclick.net,REJECT,extended-matching,pre-matching
+
+# 已由 AWAvenue 精确覆盖，停用该规则集时取消注释
+# DOMAIN,iadmusicmat.music.126.net,REJECT
+# DOMAIN,iad.g.163.com,REJECT
+# DOMAIN,ad.bn.netease.com,REJECT
+
+[Rewrite]
+# 淘宝：TopShow 顶展、poplayer 配置、HEIC 开屏兜底（原先的 URL-REGEX 规则，改为按开关生效）
+request if ${taobao_enable} == true && ${url} ~= /\/mtop\.alimama\.topshow\.query/ then reject(404)
+request if ${taobao_enable} == true && ${url} ~= /\/mtop\.alimama\.topshow\.interact/ then reject(404)
+request if ${taobao_enable} == true && ${url} ~= /\/mtop\.taobao\.poplayer\.xdsl/ then reject(404)
+request if ${taobao_enable} == true && ${url} ~= /^https:\/\/heic\.alicdn\.com\/imgextra\/i[0-9]+\/[0-9]*\/?[A-Za-z0-9_!]+-[0-9]-(octopus|tps)-(1080|1125)-[0-9]{4}\.(jpg|png)/ then reject(404)
+
+# 网易云音乐：广告接口（按开关生效）
+request if ${netease_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\/ad\/(loading|prefetch|get|flow|materialconfig|commonconfig|config|monitor|sniffing|start|device)/ then reject(404)
+request if ${netease_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\/(social\/event\/bff\/ad\/|ichat\/home\/ad\/list)/ then reject(404)
+request if ${netease_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\/delivery\/(batch-)?deliver/ then reject(404)
+# eapi 直连 IP：关闭开关后不拦，避免影响正常播放
+request if ${netease_enable} == true && ${url} ~= /^https?:\/\/ipv[46]\.music\.163\.com\// then reject(404)
+
+# ══ 传输层：改写云配置禁用 HTTPDNS 与 QUIC ══
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/api\/cloud\/zhihu\/config\/all/i then response.json.jq("def disabled_keys: {\"km_httpdns_new_config_tars\":true,\"preFetchHttpDns\":true,\"httpdns_detector_use_concurrent\":true,\"httpdns_use_memory_cache\":true,\"httpdns_new_config_tars\":true,\"tarsMixAb\":true,\"sugarQuicConfig\":true,\"quic_dns_detect_enable\":true,\"quicMixAB\":true,\"quic_downgrade_enable\":true,\"quic_priority_strategy\":true,\"quic_check_health_enable\":true,\"tquic_configuration\":true,\"networkExprimentList\":true,\"tars_ab_list\":true,\"zaSetExtraRequestHeader\":true}; def disable_dns: if type == \"object\" then if has(\"whiteHosts\") then .whiteHosts = [] else . end | if has(\"isDetectorClosed\") then .isDetectorClosed = 1 else . end | if has(\"isBackupIPClosed\") then .isBackupIPClosed = 1 else . end | if has(\"isDowngradeClosed\") then .isDowngradeClosed = 0 else . end | if has(\"dnsParser\") and (.dnsParser | type) == \"object\" then .dnsParser.httpdnsEnable = 0 else . end else . end; def disable_core_dns: if type == \"object\" then .ZHHttpDnsStartupItem_PreResolveHostsSample = \"0\" | .ZHSwitchHTTPDNSFunction_switchHTTPDNS = \"0\" | .ZHSwitchHTTPDNSFunction_switchHTTPDNSNew = {ratio: 0, whiteHosts: []} | .ZHBackUpIP_Switch_Open = \"0\" | .ZHBackUpIP_Detecter_Open = \"0\" | .ZHBackUpIPDetector_Open_backupipDetector = \"0\" | .LocalDNSSetHostWhiteList = [] else . end; if (.data.configs | type) == \"array\" then .data.configs |= map( if type != \"object\" then . elif .configKey == \"coreNetworkConf_useTars\" or .configKey == \"km_coreNetworkConf_useTars\" then .configValue |= disable_core_dns | .configVersion = \"20261024.03.30.00001\" elif (disabled_keys[.configKey // \"\"] // false) == true then .status = false | .configValue |= disable_dns | .configVersion = \"20261024.03.30.00001\" else . end) else . end")
+
+# ══ 广告位 ══
+# 14 个广告位接口，含开屏 launch_v2、按回答 ID 请求的 bottom-v2
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/commercial_api\//i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/ad-style-service\//i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/ad-track\//i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/adx\/third_sdk_info/i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/adEngine\//i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/fringe\/ad/i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/content-distribution-core\/bubble\/common\/show/i then reject_dict(200)
+
+# ══ 回答流 ══
+request if ${zhihu_purify} == true && ${url} ~= /^(https?:\/\/(?:[a-z0-9-]+\.)*zhihu\.com\/(?:simple-)?next-render\?)(?=(?:[^&#]*&)*type=answer(?:&|$))((?:[^&#]*&)*scenes=)[^&#]*/i as answerFlow then url.replace("${answerFlow.1}${answerFlow.2}question")
+
+# ══ 内容净化 ══
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/comment_v[0-9]+\/(answers|pins)\/[0-9]+\/root_comment/i then response.json.delete("atmosphere_voting_config")
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/comment_v[0-9]+\/(answers|articles|pins)\/[0-9]+\/list-headers/i then response.json.delete("continuous_consumption_module")
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/people\/self/i then response.json.jq("reduce [\"vip_info\", \"kvip_info\"][] as $key (.; if (.[$key] | type) == \"object\" then .[$key] |= with_entries(select(.key | startswith(\"entrance\") | not)) else . end)")
+
+# 回答底部广告：/commercial_api/answer/{id}/bottom-v2 返回 {"adjson":"..."}
+response if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/api\.zhihu\.com\/commercial_api\/answer\/[0-9]+\/bottom-v2/i then response.json.delete("adjson")
+
+# 回答底部品牌广告：PAG 素材走 zhstatic.zhihu.com/brand-ad/
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/zhstatic\.zhihu\.com\/brand-ad\//i then reject(404)
+
+# ══ 界面精简 ══
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/root\/tab(?:\/v[0-9]+)?/i then response.json.jq(".tab_list |= map(select(.tab_type == \"follow\" or .tab_type == \"recommend\" or .tab_type == \"hot\" or .tab_type == \"ring_tab\"))")
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/search\/tabs/i then response.json.jq(".data |= map(select(.t | IN(\"general\", \"ai_zhida\", \"recent\", \"people\", \"ring\", \"topic\", \"podcast\", \"column\", \"pin\", \"favlist\")))")
+
+# ══ 推广位 ══
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/related_recommend\/feed\/waterfall/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/search\/preset_words/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/search\/related_queries\/question\/[0-9]+/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/api\/v[0-9]+\/members\/homepage_card/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/people\/homepage_entry_v[0-9]+/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/kvip\/right\/my_card/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/unlimited\/go\/my_card\/(?:v[0-9]+|all)(?:[/?]|$)/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhida\.zhihu\.com\/ai_ingress\/knowledge\/square\/categories\/feeds/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhida\.zhihu\.com\/ai_ingress\/ai_chat\/guidance/i then reject_dict(200)
+
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/search\/recommend_query\/v[0-9]+/i then response.json.jq(".recommend_queries.queries |= map(select(.type == \"normal\"))")
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/podcasts\/hub\/v[0-9]+/i then response.json.delete("banners")
+
+# sugar.zhihu.com 兼作网络探活域（/check_health），故按路径拦而非整域
+
+# [实验] 回答底部广告：page-info 可能是广告卡的注入源。
+# 开启后若回答页空白/无法加载，立即注释回去；能正常看回答但底部广告消失就保留。
+# request if ${zhihu_enable} == true && ${url} ~= /^https:\/\/page-info\.zhihu\.com\/(answers|articles)\/v2\//i then reject_dict(200)
+
+[Script]
+# 开屏图片与视频
+response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/scripts/Taobao-ads-clean.js") with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
+
+# 开屏活动（poplayer 远程模板）
+response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/scripts/Taobao-ads-clean.js") with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
+
+# 不拦：首页主数据 / 推荐流 / newface 首页 / 商品详情 / 购物车 / 订单 / 搜索 /
+#       mtop 网关 / 会场 H5 / gw.alicdn.com 商品图 / dinamicx 弹窗模板
+
+
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/scripts/zhihu-clean.js?v=1.0.0", {${zhihu_enable}, ${zhihu_purify}}) with tag="知乎内容净化", requires_body=true
+
+# 广告预取：裸 IP + 根路径 + 知乎 App UA，脚本返回 200 + {}。
+# 不用规则拒绝——实测规则的实际策略会变为 REJECT-DROP（无响应，客户端等超时；
+# 该切换机制未见于官方文档）。广告预取位于回答页加载路径上，实测会卡住页面。
+request if ${url} ~= /^http:\/\/\d+\.\d+\.\d+\.\d+\/$/ && ${request.header['User-Agent']} ~= /osee2unifiedRelease/ then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/scripts/zhihu-ad-preload.js") with enable=${zhihu_enable}, tag="知乎广告预取"
+
+[MITM]
+hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com

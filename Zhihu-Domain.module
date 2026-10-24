@@ -1,0 +1,31 @@
+#!name=知乎 广告拦截（域名级 · 无需 MITM）
+#!desc=仅收录通用规则集未覆盖的广告域
+#!category=广告拦截
+#!author=RedContritio
+#!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
+#!version=1.0.0
+#
+# Copyright 2026 RedContritio
+# SPDX-License-Identifier: Apache-2.0
+
+[Rule]
+# 知乎自有广告域（AWAvenue 与 anti-AD 均未收录）
+DOMAIN,adaudit.zhihu.com,REJECT,extended-matching,pre-matching
+DOMAIN,promotion.zhihu.com,REJECT,extended-matching,pre-matching
+
+# 友盟 deeplink 归因 + 设备指纹（两套通用规则集均未收录）
+DOMAIN,deeplink.umeng.com,REJECT,extended-matching,pre-matching
+
+DOMAIN,ad.reward.net,REJECT,extended-matching,pre-matching
+
+DOMAIN-SUFFIX,kwaizt.com,REJECT,extended-matching,pre-matching
+
+# 以下由 anti-AD 等通用规则集覆盖，故不重复；停用它们时取消注释
+# DOMAIN,dsp.ads.umeng.com,REJECT
+# DOMAIN-SUFFIX,volceapplog.com,REJECT
+# DOMAIN-SUFFIX,oceanengine.com,REJECT
+# DOMAIN,log.snssdk.com,REJECT
+# DOMAIN,applog.snssdk.com,REJECT
+# DOMAIN,rtlog.snssdk.com,REJECT
+# DOMAIN,rtapplog.snssdk.com,REJECT
+# DOMAIN,ichannel.snssdk.com,REJECT

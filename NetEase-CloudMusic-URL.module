@@ -1,0 +1,37 @@
+#!name=网易云音乐 广告拦截（需 MITM）
+#!desc=拦截 music.163.com 下的广告接口与素材域
+#!category=广告拦截
+#!author=RedContritio
+#!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
+#!version=0.1.0
+#
+# Copyright 2026 RedContritio
+# SPDX-License-Identifier: Apache-2.0
+
+[Rule]
+# QUIC 无法 MITM，不拦则本文件全部规则静默失效
+AND,((DOMAIN-SUFFIX,music.163.com),(PROTOCOL,QUIC)),REJECT
+
+# 前缀有 /api/ /eapi/ /xeapi/ /neapi/ 等多种，故不写死
+# /ad/ 下兼有非广告功能（云贝、打榜、云贝新版），故白名单枚举子路径，勿改回整段匹配
+URL-REGEX,^https?://([a-z0-9-]+\.)*music\.163\.com/[a-z]*api/ad/(loading|prefetch|get|flow|materialconfig|commonconfig|config|monitor|sniffing|start|device),REJECT
+
+URL-REGEX,^https?://([a-z0-9-]+\.)*music\.163\.com/[a-z]*api/(social/event/bff/ad/|ichat/home/ad/list),REJECT
+URL-REGEX,^https?://([a-z0-9-]+\.)*music\.163\.com/[a-z]*api/delivery/(batch-)?deliver,REJECT
+
+# 素材 CDN 与曝光监测
+DOMAIN,iadmusicmat.music.126.net,REJECT,extended-matching,pre-matching
+DOMAIN,iadmusicmatvideo.music.126.net,REJECT,extended-matching,pre-matching
+DOMAIN,admusicpic.music.126.net,REJECT,extended-matching,pre-matching
+DOMAIN,iadmat.nosdn.127.net,REJECT,extended-matching,pre-matching
+DOMAIN,iadmatapk.nosdn.127.net,REJECT,extended-matching,pre-matching
+DOMAIN,iad.service.163.org,REJECT,extended-matching,pre-matching
+
+# eapi 直连 IP，绕过本地 DNS 会致 MITM 失效
+DOMAIN,ipv4.music.163.com,REJECT,extended-matching,pre-matching
+DOMAIN,ipv6.music.163.com,REJECT,extended-matching,pre-matching
+
+# 规则以逗号分隔字段，正则内不得出现逗号；量词 {n,m} 会截断规则，故用 * 或 +
+
+[MITM]
+hostname = music.163.com, *.music.163.com

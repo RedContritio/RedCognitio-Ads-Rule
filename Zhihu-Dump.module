@@ -1,0 +1,18 @@
+#!name=知乎响应抓取（诊断）
+#!desc=临时把 page-info / answers 响应打印到 Loon 日志，前缀 ZHDUMP；抓完停用
+#!author=RedContritio
+#!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
+#!version=1.0.0
+#!loon_version=3.5.1(978)
+
+[Script]
+request if ${url} ~= /^https:\/\/(page-info\.zhihu\.com\/(answers|articles)\/v2\/|api\.zhihu\.com\/(answers|articles)\/v2\/)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-dump-req.js") with tag="知乎请求诊断"
+response if ${url} ~= /^https:\/\/(page-info\.zhihu\.com\/(answers|articles)\/v2\/|api\.zhihu\.com\/(answers|articles)\/v2\/)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-dump.js") with tag="知乎响应抓取", requires_body=true
+
+[MITM]
+hostname = page-info.zhihu.com, *.zhihu.com
+
+[Host]
+# 临时测试：page-info 的 DNS 在日志里 20 秒无响应；先硬编码一个 CDN IP。
+# 若页面异常或 IP 失效，删掉这一行。
+page-info.zhihu.com = 203.132.38.13

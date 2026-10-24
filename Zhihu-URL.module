@@ -1,0 +1,96 @@
+#!name=知乎 广告拦截（需 MITM）
+#!desc=以 kelee/RuCu6 的实现为范本：广告位、推广位、内容净化、界面精简
+#!category=广告拦截
+#!author=RedContritio
+#!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
+#!version=1.0.0
+#!date=2026-10-24 · 1.0.0
+#!loon_version=3.5.1(983)
+#
+# Copyright 2026 RedContritio
+# SPDX-License-Identifier: Apache-2.0
+
+[Argument]
+zhihu_enable = switch,true,type=boolean,tag=知乎-去广告,desc=过滤广告位、推广内容与广告预加载
+zhihu_purify = switch,true,type=boolean,tag=知乎-净化,desc=隐藏首页视频、仅看当前问题、跳过会员受限回答并精简界面
+
+[Rule]
+# QUIC 无法 MITM，不拦则本文件全部规则静默失效
+AND,((DOMAIN-SUFFIX,zhihu.com),(PROTOCOL,QUIC)),REJECT
+
+# 开屏在自有接口失败时回落三方联盟。同样用 REJECT-DICT：DROP 会让 SDK 等待超时，疑似开屏不稳定的成因
+DOMAIN-SUFFIX,pangolin-sdk-toutiao.com,REJECT-DICT,extended-matching,pre-matching
+DOMAIN-SUFFIX,pangolin-sdk-toutiao1.com,REJECT-DICT,extended-matching,pre-matching
+DOMAIN-SUFFIX,pangolin-sdk-toutiao-b.com,REJECT-DICT,extended-matching,pre-matching
+DOMAIN-SUFFIX,gdt.qq.com,REJECT-DICT,extended-matching,pre-matching
+DOMAIN-SUFFIX,tanx.com,REJECT-DICT,extended-matching,pre-matching
+
+# [实验] 443 裸 IP 广告预加载（来自 2026-10-23 18:38 日志）。
+# 80 端口已由 [Script] 回 {}；这里只封 443，避免同时封 80/443 导致页面卡死。
+# 先只启用 106.13.249.166 观察是否卡顿；正常再逐条放开。IP 会轮换，需按日志追加。
+# 若出现转圈/无法下滑，立即全部注释回去。
+# AND,((IP-CIDR,106.13.249.166/32),(DEST-PORT,443)),REJECT
+# AND,((IP-CIDR,125.88.253.207/32),(DEST-PORT,443)),REJECT
+# AND,((IP-CIDR,106.13.249.249/32),(DEST-PORT,443)),REJECT
+# AND,((IP-CIDR,182.61.194.9/32),(DEST-PORT,443)),REJECT
+# AND,((IP-CIDR,43.242.197.211/32),(DEST-PORT,443)),REJECT
+
+[Rewrite]
+# ══ 传输层：改写云配置禁用 HTTPDNS 与 QUIC ══
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/api\/cloud\/zhihu\/config\/all/i then response.json.jq("def disabled_keys: {\"km_httpdns_new_config_tars\":true,\"preFetchHttpDns\":true,\"httpdns_detector_use_concurrent\":true,\"httpdns_use_memory_cache\":true,\"httpdns_new_config_tars\":true,\"tarsMixAb\":true,\"sugarQuicConfig\":true,\"quic_dns_detect_enable\":true,\"quicMixAB\":true,\"quic_downgrade_enable\":true,\"quic_priority_strategy\":true,\"quic_check_health_enable\":true,\"tquic_configuration\":true,\"networkExprimentList\":true,\"tars_ab_list\":true,\"zaSetExtraRequestHeader\":true}; def disable_dns: if type == \"object\" then if has(\"whiteHosts\") then .whiteHosts = [] else . end | if has(\"isDetectorClosed\") then .isDetectorClosed = 1 else . end | if has(\"isBackupIPClosed\") then .isBackupIPClosed = 1 else . end | if has(\"isDowngradeClosed\") then .isDowngradeClosed = 0 else . end | if has(\"dnsParser\") and (.dnsParser | type) == \"object\" then .dnsParser.httpdnsEnable = 0 else . end else . end; def disable_core_dns: if type == \"object\" then .ZHHttpDnsStartupItem_PreResolveHostsSample = \"0\" | .ZHSwitchHTTPDNSFunction_switchHTTPDNS = \"0\" | .ZHSwitchHTTPDNSFunction_switchHTTPDNSNew = {ratio: 0, whiteHosts: []} | .ZHBackUpIP_Switch_Open = \"0\" | .ZHBackUpIP_Detecter_Open = \"0\" | .ZHBackUpIPDetector_Open_backupipDetector = \"0\" | .LocalDNSSetHostWhiteList = [] else . end; if (.data.configs | type) == \"array\" then .data.configs |= map( if type != \"object\" then . elif .configKey == \"coreNetworkConf_useTars\" or .configKey == \"km_coreNetworkConf_useTars\" then .configValue |= disable_core_dns | .configVersion = \"20261024.03.30.00001\" elif (disabled_keys[.configKey // \"\"] // false) == true then .status = false | .configValue |= disable_dns | .configVersion = \"20261024.03.30.00001\" else . end) else . end")
+
+# ══ 广告位 ══
+# 14 个广告位接口，含开屏 launch_v2、按回答 ID 请求的 bottom-v2
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/commercial_api\//i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/ad-style-service\//i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/ad-track\//i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/adx\/third_sdk_info/i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/adEngine\//i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/fringe\/ad/i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/content-distribution-core\/bubble\/common\/show/i then reject_dict(200)
+
+# ══ 回答流 ══
+request if ${zhihu_purify} == true && ${url} ~= /^(https?:\/\/(?:[a-z0-9-]+\.)*zhihu\.com\/(?:simple-)?next-render\?)(?=(?:[^&#]*&)*type=answer(?:&|$))((?:[^&#]*&)*scenes=)[^&#]*/i as answerFlow then url.replace("${answerFlow.1}${answerFlow.2}question")
+
+# ══ 内容净化 ══
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/comment_v[0-9]+\/(answers|pins)\/[0-9]+\/root_comment/i then response.json.delete("atmosphere_voting_config")
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/comment_v[0-9]+\/(answers|articles|pins)\/[0-9]+\/list-headers/i then response.json.delete("continuous_consumption_module")
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/people\/self/i then response.json.jq("reduce [\"vip_info\", \"kvip_info\"][] as $key (.; if (.[$key] | type) == \"object\" then .[$key] |= with_entries(select(.key | startswith(\"entrance\") | not)) else . end)")
+
+# 回答底部广告：/commercial_api/answer/{id}/bottom-v2 返回 {"adjson":"..."}
+# ══ 界面精简 ══
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/root\/tab(?:\/v[0-9]+)?/i then response.json.jq(".tab_list |= map(select(.tab_type == \"follow\" or .tab_type == \"recommend\" or .tab_type == \"hot\" or .tab_type == \"ring_tab\"))")
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/search\/tabs/i then response.json.jq(".data |= map(select(.t | IN(\"general\", \"ai_zhida\", \"recent\", \"people\", \"ring\", \"topic\", \"podcast\", \"column\", \"pin\", \"favlist\")))")
+
+# ══ 推广位 ══
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/related_recommend\/feed\/waterfall/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/search\/preset_words/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/search\/related_queries\/question\/[0-9]+/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/api\/v[0-9]+\/members\/homepage_card/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/people\/homepage_entry_v[0-9]+/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/kvip\/right\/my_card/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/unlimited\/go\/my_card\/(?:v[0-9]+|all)(?:[/?]|$)/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhida\.zhihu\.com\/ai_ingress\/knowledge\/square\/categories\/feeds/i then reject_dict(200)
+request if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhida\.zhihu\.com\/ai_ingress\/ai_chat\/guidance/i then reject_dict(200)
+
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/search\/recommend_query\/v[0-9]+/i then response.json.jq(".recommend_queries.queries |= map(select(.type == \"normal\"))")
+response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/podcasts\/hub\/v[0-9]+/i then response.json.delete("banners")
+
+# 请求层已被 commercial_api 规则拦；这里再加响应层兜底，删掉 adjson 即无广告。
+response if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/api\.zhihu\.com\/commercial_api\/answer\/[0-9]+\/bottom-v2/i then response.json.delete("adjson")
+
+# 回答底部品牌广告：PAG 素材走 zhstatic.zhihu.com/brand-ad/
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/zhstatic\.zhihu\.com\/brand-ad\//i then reject(404)
+
+# sugar.zhihu.com 兼作网络探活域（/check_health），故按路径拦而非整域
+
+[Script]
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-clean.js?v=1.0.0", {${zhihu_enable}, ${zhihu_purify}}) with tag="知乎内容净化", requires_body=true
+
+# 广告预取：裸 IP + 根路径 + 知乎 App UA，脚本返回 200 + {}。
+# 不用规则拒绝——实测规则的实际策略会变为 REJECT-DROP（无响应，客户端等超时；
+# 该切换机制未见于官方文档）。广告预取位于回答页加载路径上，实测会卡住页面。
+request if ${url} ~= /^http:\/\/\d+\.\d+\.\d+\.\d+\/$/ && ${request.header['User-Agent']} ~= /osee2unifiedRelease/ then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-ad-preload.js") with enable=${zhihu_enable}, tag="知乎广告预取"
+
+[MITM]
+hostname = zhihu.com, *.zhihu.com
