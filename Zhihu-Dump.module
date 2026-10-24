@@ -1,13 +1,16 @@
 #!name=知乎响应抓取（诊断）
-#!desc=临时把 page-info / answers 响应打印到 Loon 日志，前缀 ZHDUMP；抓完停用
+#!desc=开启知乎-调试后，将 page-info / answers 请求与完整响应打印到 Loon 日志，前缀 ZHDUMP
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=1.0.0
-#!loon_version=3.5.1(978)
+#!version=1.1.0
+#!loon_version=3.5.1(983)
+
+[Argument]
+zhihu_debug = switch,false,type=boolean,tag=知乎-调试,desc=记录详情请求与完整响应
 
 [Script]
-request if ${url} ~= /^https:\/\/(page-info\.zhihu\.com\/(answers|articles)\/v2\/|api\.zhihu\.com\/(answers|articles)\/v2\/)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-dump-req.js") with tag="知乎请求诊断"
-response if ${url} ~= /^https:\/\/(page-info\.zhihu\.com\/(answers|articles)\/v2\/|api\.zhihu\.com\/(answers|articles)\/v2\/)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-dump.js") with tag="知乎响应抓取", requires_body=true
+request if ${zhihu_debug} == true && ${url} ~= /^https:\/\/(page-info\.zhihu\.com\/(answers|articles)\/v2\/|api\.zhihu\.com\/(answers|articles)\/v2\/)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-dump-req.js?v=1.1.0", {${zhihu_debug}}) with tag="知乎请求诊断"
+response if ${zhihu_debug} == true && ${url} ~= /^https:\/\/(page-info\.zhihu\.com\/(answers|articles)\/v2\/|api\.zhihu\.com\/(answers|articles)\/v2\/)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-dump.js?v=1.1.0", {${zhihu_debug}}) with tag="知乎响应抓取", requires_body=true
 
 [MITM]
 hostname = page-info.zhihu.com, *.zhihu.com

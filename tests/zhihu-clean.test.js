@@ -147,7 +147,7 @@ test("all plugin variants route answer and recommendation bodies to both script 
     const lines = fs.readFileSync(path.join(__dirname, "..", filename), "utf8").split("\n");
     const script = lines.find((line) => line.includes("zhihu-clean.js") && line.startsWith("response if"));
     assert(script.includes('(${zhihu_enable} == true || ${zhihu_purify} == true)'), filename);
-    assert(script.includes('{${zhihu_enable}, ${zhihu_purify}}'), filename);
+    assert(script.includes('{${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}'), filename);
     const expression = new RegExp(script.match(/~= \/(.*?)\/i then/)[1], "i");
     const urls = [
       "https://api.zhihu.com/next-render?type=answer&id=first",
@@ -444,7 +444,7 @@ test("search purification removes explicitly restricted paid products and preser
   const url = "https://api.zhihu.com/search_v3?t=general";
   const logs = [];
   const result = clean({ data: items, paging, pendant: { campaign: "membership" } }, {
-    url, argument: { zhihu_enable: false, zhihu_purify: true }, logs,
+    url, argument: { zhihu_enable: false, zhihu_purify: true, zhihu_debug: true }, logs,
   });
   assert.deepEqual(result, { data: [items[0], items[1], items[4], items[5], items[6]], paging });
   const summary = JSON.parse(logs.find(line => line.startsWith("ZHCLEAN ")).slice(8));
@@ -485,7 +485,7 @@ test("search purification removes knowledge courses and paid novel cards using t
   const url = "https://api.zhihu.com/search_v3?t=general";
   const logs = [];
   assert.deepEqual(clean(body, { url, logs, argument: {
-    zhihu_enable: false, zhihu_purify: true,
+    zhihu_enable: false, zhihu_purify: true, zhihu_debug: true,
   } }), { data: normal, paging });
   const summary = JSON.parse(logs.find(line => line.startsWith("ZHCLEAN ")).slice(8));
   assert.equal(summary.restricted_removed, 4);
@@ -522,7 +522,7 @@ test("search diagnostics reconstruct the complete original response before filte
   const raw = JSON.stringify(body, null, 2);
   const logs = [];
   const url = "https://api.zhihu.com/search_v3?q=知识";
-  const result = run(raw, { url, raw: true, logs });
+  const result = run(raw, { url, raw: true, logs, argument: { zhihu_debug: true } });
   assert.deepEqual(JSON.parse(result.body), { data: [], paging: body.paging });
   const meta = JSON.parse(logs.find(line => line.startsWith("ZHSEARCH-META ")).slice(14));
   const chunks = logs.filter(line => line.startsWith("ZHSEARCH-BODY "))
@@ -544,7 +544,7 @@ test("search diagnostics cover malformed responses and ads-only mode but skip un
   for (const raw of ["", "not-json", '{"data":[]}']) {
     const logs = [];
     run(raw, { raw: true, logs, url: "https://api.zhihu.com/search_v3", argument: {
-      zhihu_enable: true, zhihu_purify: false,
+      zhihu_enable: true, zhihu_purify: false, zhihu_debug: true,
     } });
     const chunks = logs.filter(line => line.startsWith("ZHSEARCH-BODY "))
       .map(line => JSON.parse(line.slice(14)));

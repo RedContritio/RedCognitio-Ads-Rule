@@ -10,15 +10,21 @@
 const url = $request.url;
 const response = $response;
 
-if (!response || !response.body) {
-  $done({});
+let arg = $argument;
+if (typeof arg === "string") {
+  try {
+    arg = JSON.parse(arg);
+  } catch (e) {
+    arg = null;
+  }
 }
+const debug = arg?.taobao_debug === true || arg?.taobao_debug === "true";
 
 function parseJSON(text) {
   try {
     return JSON.parse(text);
   } catch (e) {
-    console.log(`[Taobao-ads-clean] JSON 解析失败: ${e}`);
+    if (debug) console.log(`[Taobao-ads-clean] JSON 解析失败: ${e}`);
     return null;
   }
 }
@@ -91,21 +97,20 @@ function cleanPoplayerTemplate(obj) {
   return touched;
 }
 
-if (/mtop\.taobao\.wireless\.home\.splash\.awesome\.get/.test(url)) {
+function handle() {
+  if (!response || !response.body) return {};
   const obj = parseJSON(response.body);
-  if (obj && cleanSplash(obj.data)) {
-    $done({ body: JSON.stringify(obj) });
+  if (!obj) return {};
+  let changed = false;
+  if (/mtop\.taobao\.wireless\.home\.splash\.awesome\.get/.test(url)) {
+    changed = cleanSplash(obj.data);
+  } else if (/mtop\.taobao\.cloudvideo\.video\.query/.test(url)) {
+    changed = cleanCloudVideo(obj.data);
+  } else if (/^https:\/\/poplayer\.template\.alibaba\.com\//.test(url)) {
+    changed = cleanPoplayerTemplate(obj);
   }
-} else if (/mtop\.taobao\.cloudvideo\.video\.query/.test(url)) {
-  const obj = parseJSON(response.body);
-  if (obj && cleanCloudVideo(obj.data)) {
-    $done({ body: JSON.stringify(obj) });
-  }
-} else if (/^https:\/\/poplayer\.template\.alibaba\.com\//.test(url)) {
-  const obj = parseJSON(response.body);
-  if (obj && cleanPoplayerTemplate(obj)) {
-    $done({ body: JSON.stringify(obj) });
-  }
+  if (debug) console.log("TBCLEAN " + JSON.stringify({ url: url.split("?")[0], changed }));
+  return changed ? { body: JSON.stringify(obj) } : {};
 }
 
-$done({});
+$done(handle());

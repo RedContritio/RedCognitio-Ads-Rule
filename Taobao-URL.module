@@ -3,10 +3,13 @@
 #!category=广告拦截
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=0.1.0
+#!version=0.2.0
 #
 # Copyright 2026 RedContritio
 # SPDX-License-Identifier: Apache-2.0
+
+[Argument]
+taobao_debug = switch,false,type=boolean,tag=淘宝-调试,desc=记录响应净化结果与解析错误
 
 [Rule]
 # QUIC 无法 MITM，不拦则本文件全部规则与脚本静默失效
@@ -29,10 +32,10 @@ URL-REGEX,^https://heic\.alicdn\.com/imgextra/i[0-9]+/[0-9]*/?[A-Za-z0-9_!]+-[0-
 
 [Script]
 # 开屏图片与视频
-response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/Taobao-ads-clean.js") with tag="淘宝开屏净化", requires_body=true
+response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/Taobao-ads-clean.js?v=0.2.0", {${taobao_debug}}) with tag="淘宝开屏净化", requires_body=true
 
 # 开屏活动（poplayer 远程模板）
-response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/Taobao-ads-clean.js") with tag="淘宝开屏活动净化", requires_body=true
+response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/Taobao-ads-clean.js?v=0.2.0", {${taobao_debug}}) with tag="淘宝开屏活动净化", requires_body=true
 
 # 不拦：首页主数据 / 推荐流 / newface 首页 / 商品详情 / 购物车 / 订单 / 搜索 /
 #       mtop 网关 / 会场 H5 / gw.alicdn.com 商品图 / dinamicx 弹窗模板

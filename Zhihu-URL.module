@@ -3,8 +3,8 @@
 #!category=广告拦截
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=1.0.0
-#!date=2026-10-24 · 1.0.0
+#!version=1.1.0
+#!date=2026-10-24 · 1.1.0
 #!loon_version=3.5.1(983)
 #
 # Copyright 2026 RedContritio
@@ -13,6 +13,7 @@
 [Argument]
 zhihu_enable = switch,true,type=boolean,tag=知乎-去广告,desc=过滤广告位、推广内容与广告预加载
 zhihu_purify = switch,true,type=boolean,tag=知乎-净化,desc=隐藏首页视频、仅看当前问题、跳过会员受限回答并精简界面
+zhihu_debug = switch,false,type=boolean,tag=知乎-调试,desc=记录过滤计数、解析错误与完整搜索响应
 
 [Rule]
 # QUIC 无法 MITM，不拦则本文件全部规则静默失效
@@ -85,7 +86,7 @@ request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/zhstatic\.zhihu\.co
 # sugar.zhihu.com 兼作网络探活域（/check_health），故按路径拦而非整域
 
 [Script]
-response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-clean.js?v=1.0.0", {${zhihu_enable}, ${zhihu_purify}}) with tag="知乎内容净化", requires_body=true
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-clean.js?v=1.1.0", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
 
 # 广告预取：裸 IP + 根路径 + 知乎 App UA，脚本返回 200 + {}。
 # 不用规则拒绝——实测规则的实际策略会变为 REJECT-DROP（无响应，客户端等超时；

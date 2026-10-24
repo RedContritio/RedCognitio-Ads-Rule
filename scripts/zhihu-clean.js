@@ -26,12 +26,13 @@ if (typeof arg === "string") {
     arg = null;
   }
 }
-function enabled(name) {
+function enabled(name, fallback = true) {
   const value = arg ? arg[name] : undefined;
-  return value === undefined ? true : value === true || value === "true";
+  return value === undefined ? fallback : value === true || value === "true";
 }
 const removeAds = enabled("zhihu_enable");
 const purify = enabled("zhihu_purify");
+const debug = enabled("zhihu_debug", false);
 
 function parseObject(value) {
   if (typeof value === "string") {
@@ -245,7 +246,7 @@ function handle(body) {
     }
   }
 
-  console.log(
+  if (debug) console.log(
     "ZHCLEAN " +
       JSON.stringify({
         url: url.split("?")[0],
@@ -261,16 +262,16 @@ function handle(body) {
 }
 
 if (!removeAds && !purify) {
-  console.log("ZHCLEAN-OFF " + url.split("?")[0]);
+  if (debug) console.log("ZHCLEAN-OFF " + url.split("?")[0]);
   $done({});
 } else {
-  console.log("ZHCLEAN-ENTER " + url.split("?")[0]);
-  if (SEARCH_URL.test(url)) logSearchResponse($response.body);
+  if (debug) console.log("ZHCLEAN-ENTER " + url.split("?")[0]);
+  if (debug && SEARCH_URL.test(url)) logSearchResponse($response.body);
   let body;
   try {
     body = JSON.parse($response.body);
   } catch (e) {
-    console.log("ZHCLEAN-BADJSON " + url.split("?")[0]);
+    if (debug) console.log("ZHCLEAN-BADJSON " + url.split("?")[0]);
     body = undefined;
   }
   if (body === undefined) {

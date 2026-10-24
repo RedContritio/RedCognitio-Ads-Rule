@@ -85,3 +85,5 @@
 ## 模块
 
 `NetEase-CloudMusic-URL.module`（路径级，需 MITM）、`NetEase-CloudMusic-Domain.module`（域名级，无需 MITM）
+
+路径模块 **0.2.0**，Loon 3.5.1（983）+。网易云音乐-调试默认关闭；开启后以 `NCMDEBUG` 记录进入脚本的 API 请求方法与 URL。原生规则拦截记录在 Loon 请求记录中查看。
