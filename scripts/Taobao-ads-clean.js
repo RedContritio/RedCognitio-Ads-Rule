@@ -10,15 +10,16 @@
 const url = $request.url;
 const response = $response;
 
-let arg = $argument;
-if (typeof arg === "string") {
+let arg = (typeof __DEBUG__ === "undefined" || __DEBUG__) ? $argument : null;
+if ((typeof __DEBUG__ === "undefined" || __DEBUG__) && typeof arg === "string") {
   try {
     arg = JSON.parse(arg);
   } catch (e) {
     arg = null;
   }
 }
-const debug = arg?.taobao_debug === true || arg?.taobao_debug === "true";
+const debug = (typeof __DEBUG__ === "undefined" || __DEBUG__) &&
+  (arg?.taobao_debug === true || arg?.taobao_debug === "true");
 
 function parseJSON(text) {
   try {

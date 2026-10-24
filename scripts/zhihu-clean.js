@@ -32,7 +32,7 @@ function enabled(name, fallback = true) {
 }
 const removeAds = enabled("zhihu_enable");
 const purify = enabled("zhihu_purify");
-const debug = enabled("zhihu_debug", false);
+const debug = (typeof __DEBUG__ === "undefined" || __DEBUG__) && enabled("zhihu_debug", false);
 
 function parseObject(value) {
   if (typeof value === "string") {

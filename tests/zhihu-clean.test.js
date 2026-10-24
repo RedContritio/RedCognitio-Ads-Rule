@@ -11,7 +11,8 @@ const source = fs.readFileSync(
 );
 const variants = [
   "RedCognitio-Ads.plugin", "RedCognitio-Ads-ghproxy.plugin",
-  "RedCognitio-Ads-jsdelivr.plugin", "Zhihu-URL.module",
+  "RedCognitio-Ads-jsdelivr.plugin", "RedCognitio-Ads-debug.plugin",
+  "RedCognitio-Ads-debug-ghproxy.plugin", "RedCognitio-Ads-debug-jsdelivr.plugin", "Zhihu-URL.module",
 ];
 
 function rewrite(body, filename, endpoint) {
@@ -140,14 +141,14 @@ test("does not remove an unknown ad type outside the answer stream", () => {
 });
 
 test("all plugin variants route answer and recommendation bodies to both script switches", () => {
-  for (const filename of [
-    "RedCognitio-Ads.plugin", "RedCognitio-Ads-ghproxy.plugin",
-    "RedCognitio-Ads-jsdelivr.plugin", "Zhihu-URL.module",
-  ]) {
+  for (const filename of variants) {
     const lines = fs.readFileSync(path.join(__dirname, "..", filename), "utf8").split("\n");
     const script = lines.find((line) => line.includes("zhihu-clean.js") && line.startsWith("response if"));
     assert(script.includes('(${zhihu_enable} == true || ${zhihu_purify} == true)'), filename);
-    assert(script.includes('{${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}'), filename);
+    const args = filename.includes("-debug") || filename.endsWith(".module")
+      ? '{${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}'
+      : '{${zhihu_enable}, ${zhihu_purify}}';
+    assert(script.includes(args), filename);
     const expression = new RegExp(script.match(/~= \/(.*?)\/i then/)[1], "i");
     const urls = [
       "https://api.zhihu.com/next-render?type=answer&id=first",

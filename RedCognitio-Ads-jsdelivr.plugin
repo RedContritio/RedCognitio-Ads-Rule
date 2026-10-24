@@ -1,9 +1,10 @@
 #!name=RedCognitio 去广告合集（jsDelivr 镜像）
-#!desc=知乎 / 淘宝 / 网易云音乐，按应用开关；jsDelivr 镜像；需 MITM
+#!desc=知乎 / 淘宝 / 网易云音乐，按应用开关；Release · 构建 1；jsDelivr 镜像；需 MITM，Loon 3.5.1+
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=1.1.0
-#!date=2026-10-24 · 1.1.0
+#!version=1.0.0
+#!build=1
+#!date=2026-10-24 · 1.0.0 (1)
 #!loon_version=3.5.1(983)
 #!category=广告拦截
 #!type=normal
@@ -16,9 +17,6 @@ zhihu_enable = switch,true,type=boolean,tag=知乎-去广告,desc=过滤广告�
 zhihu_purify = switch,true,type=boolean,tag=知乎-净化,desc=隐藏首页视频、仅看当前问题、跳过会员受限回答并精简界面
 taobao_enable = switch,true,type=boolean,tag=淘宝-去广告,desc=关闭后停止淘宝开屏与 poplayer 净化
 netease_enable = switch,true,type=boolean,tag=网易云音乐-去广告,desc=关闭后停止网易云广告接口拦截
-zhihu_debug = switch,false,type=boolean,tag=知乎-调试,desc=记录过滤计数、解析错误与完整搜索响应
-taobao_debug = switch,false,type=boolean,tag=淘宝-调试,desc=记录响应净化结果与解析错误
-netease_debug = switch,false,type=boolean,tag=网易云音乐-调试,desc=记录进入脚本的 API 请求方法与 URL
 
 # 说明：DOMAIN 级广告域规则不带开关，只封广告域，不会影响 App 正常功能。
 # 需要完全关闭某个 App 时，直接把对应开关关掉即可；广告域本身不会造成业务影响。
@@ -177,24 +175,23 @@ response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhi
 # request if ${zhihu_enable} == true && ${url} ~= /^https:\/\/page-info\.zhihu\.com\/(answers|articles)\/v2\//i then reject_dict(200)
 
 [Script]
-request if ${netease_debug} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\//i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/scripts/netease-debug.js?v=0.2.0", {${netease_debug}}) with tag="网易云音乐调试"
 
 # 开屏图片与视频
-response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/scripts/Taobao-ads-clean.js?v=0.2.0", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
+response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/Taobao-ads-clean.js?build=1") with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
 
 # 开屏活动（poplayer 远程模板）
-response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/scripts/Taobao-ads-clean.js?v=0.2.0", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
+response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/Taobao-ads-clean.js?build=1") with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
 
 # 不拦：首页主数据 / 推荐流 / newface 首页 / 商品详情 / 购物车 / 订单 / 搜索 /
 #       mtop 网关 / 会场 H5 / gw.alicdn.com 商品图 / dinamicx 弹窗模板
 
 
-response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/scripts/zhihu-clean.js?v=1.1.0", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/zhihu-clean.js?build=1", {${zhihu_enable}, ${zhihu_purify}}) with tag="知乎内容净化", requires_body=true
 
 # 广告预取：裸 IP + 根路径 + 知乎 App UA，脚本返回 200 + {}。
 # 不用规则拒绝——实测规则的实际策略会变为 REJECT-DROP（无响应，客户端等超时；
 # 该切换机制未见于官方文档）。广告预取位于回答页加载路径上，实测会卡住页面。
-request if ${url} ~= /^http:\/\/\d+\.\d+\.\d+\.\d+\/$/ && ${request.header['User-Agent']} ~= /osee2unifiedRelease/ then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/scripts/zhihu-ad-preload.js") with enable=${zhihu_enable}, tag="知乎广告预取"
+request if ${url} ~= /^http:\/\/\d+\.\d+\.\d+\.\d+\/$/ && ${request.header['User-Agent']} ~= /osee2unifiedRelease/ then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/zhihu-ad-preload.js?build=1") with enable=${zhihu_enable}, tag="知乎广告预取"
 
 [MITM]
 hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com

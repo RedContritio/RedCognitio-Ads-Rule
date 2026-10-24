@@ -5,7 +5,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const root = path.join(__dirname, "..");
-const plugins = ["RedCognitio-Ads.plugin", "RedCognitio-Ads-ghproxy.plugin", "RedCognitio-Ads-jsdelivr.plugin"];
+const plugins = ["RedCognitio-Ads-debug.plugin", "RedCognitio-Ads-debug-ghproxy.plugin", "RedCognitio-Ads-debug-jsdelivr.plugin"];
 
 function run(script, argument, request, body) {
   const logs = [];
@@ -133,7 +133,7 @@ test("all distributions declare default-off flags and pass only the owning debug
       assert(line.includes('${' + app + '_debug}'), file);
       const args = line.match(/, \{(.*?)\}\) with/)[1];
       for (const other of ["zhihu", "taobao", "netease"].filter(name => name !== app)) assert(!args.includes(other + "_debug"), file);
-      assert(line.includes(app === "zhihu" ? "?v=1.1.0" : "?v=0.2.0"), file);
+      assert(line.includes(file.endsWith(".plugin") ? "?build=" : app === "zhihu" ? "?v=1.1.0" : "?v=0.2.0"), file);
       if (app === "netease" || file.includes("Dump")) {
         assert(line.startsWith(`request if \${${app}_debug} == true &&`) || line.startsWith(`response if \${${app}_debug} == true &&`), file);
         if (app === "netease") assert(!line.includes("requires_body=true"), file);

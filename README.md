@@ -1,32 +1,23 @@
 # RedCognitio 去广告合集
 
-合集 / 知乎路径模块 **1.1.0**；淘宝 / 网易云音乐路径模块 **0.2.0**。
+合集版本固定为 **1.0.0**，更新时递增构建号；插件日期显示 `1.0.0 (构建号)`。
 
 Loon 3.5.1（983）及以上版本插件，按应用开关：**知乎 / 淘宝 / 网易云音乐**。
 
 ## 安装
 
-在 Loon → 配置 → 插件 → 添加，填入：
+在 Loon → 配置 → 插件 → 添加，选择一种构建安装。gh-proxy 地址：
 
-```text
-https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/RedCognitio-Ads.plugin
-```
+| 构建 | 安装地址 | 设置 |
+|---|---|---|
+| Release | [RedCognitio-Ads-ghproxy.plugin](https://gh-proxy.com/https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/RedCognitio-Ads-ghproxy.plugin) | 四个功能开关，脚本仅保留过滤逻辑 |
+| Debug | [RedCognitio-Ads-debug-ghproxy.plugin](https://gh-proxy.com/https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/RedCognitio-Ads-debug-ghproxy.plugin) | 四个功能开关、三个默认关闭的调试开关 |
 
-使用 gh-proxy 镜像：
-
-```text
-https://gh-proxy.com/https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/RedCognitio-Ads-ghproxy.plugin
-```
-
-也可使用 jsDelivr：
-
-```text
-https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/RedCognitio-Ads.plugin
-```
+直连使用同名去掉 `-ghproxy` 的文件；jsDelivr 使用 `-jsdelivr.plugin` 文件。两种构建择一启用。
 
 ## 设置页
 
-插件详情页提供七个开关：
+Release 提供前四项；Debug 提供全部七项：
 
 | 开关 | 默认 | 作用 |
 |---|---|---|
@@ -40,7 +31,7 @@ https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/RedCognitio-A
 
 去广告与净化开关控制对应的 Rewrite / Script；知乎响应脚本与网络配置改写由去广告或净化启用。**域名与 QUIC 规则常驻**；完全停用需关闭插件。
 
-调试按 App 独立控制脚本日志。知乎、淘宝在对应净化脚本运行时输出；网易云按需启用请求记录脚本。原生规则的拦截记录在 Loon 请求记录中查看。独立路径模块也提供对应调试开关。
+Debug 按 App 独立控制脚本日志。知乎、淘宝在对应净化脚本运行时输出；网易云按需启用请求记录脚本。原生规则的拦截记录在 Loon 请求记录中查看。独立路径模块也提供对应调试开关。
 
 知乎规则目标、来源与验证状态见 [维护清单](Zhihu.md)。
 
@@ -49,9 +40,18 @@ https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/RedCognitio-A
 - 需要开启 MITM 并信任 Loon CA；插件已带 hostname。
 - 合集与独立 `.module` 模块择一启用。
 
-## 脚本
+## 构建
 
-- `scripts/zhihu-clean.js`：知乎 JSON 净化，调试输出由知乎-调试控制。
-- `scripts/zhihu-ad-preload.js`：知乎裸 IP 80 端口回 `{}`
-- `scripts/Taobao-ads-clean.js`：淘宝开屏/poplayer 净化
-- `scripts/netease-debug.js`：网易云 API 请求调试
+Node.js 20+；规则测试使用 `jq`。
+
+```sh
+npm ci
+npm run build
+npm test
+npm run build:check
+```
+
+- 修改 `build/RedCognitio-Ads.plugin.tpl` 和 `scripts/` 源码。
+- `npm run build` 自动递增 `build/build.json` 的构建号，生成两种构建及三种下载源；脚本产物位于 `dist/release/`、`dist/debug/`。
+- `npm run build -- --no-increment` 按当前构建号重建；`npm run build:check` 只校验产物一致性。
+- Release 构建移除调试开关、调试路由及日志代码。提交模板、源码、构建信息和生成产物，保持在线安装地址同步。
