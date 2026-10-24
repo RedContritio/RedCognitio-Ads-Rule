@@ -1,6 +1,6 @@
 # RedCognitio 去广告合集
 
-合集版本固定为 **1.0.0**，更新时递增构建号；插件日期显示 `1.0.0 (构建号)`。
+合集版本格式为 **1.0.N**，第三位为构建号，按 `1.0.0 → 1.0.1 → 1.0.2` 递增。
 
 Loon 3.5.1（983）及以上版本插件，按应用开关：**知乎 / 淘宝 / 网易云音乐**。
 
@@ -52,6 +52,6 @@ npm run build:check
 ```
 
 - 修改 `build/RedCognitio-Ads.plugin.tpl` 和 `scripts/` 源码。
-- `npm run build` 自动递增 `build/build.json` 的构建号，生成两种构建及三种下载源；脚本产物位于 `dist/release/`、`dist/debug/`。
+- `npm run build` 自动递增 `build/build.json` 中版本号的第三位，生成两种构建及三种下载源；脚本产物位于 `dist/release/`、`dist/debug/`。
 - `npm run build -- --no-increment` 按当前构建号重建；`npm run build:check` 只校验产物一致性。
 - Release 构建移除调试开关、调试路由及日志代码。提交模板、源码、构建信息和生成产物，保持在线安装地址同步。

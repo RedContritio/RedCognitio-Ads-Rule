@@ -14,8 +14,11 @@ const mirrors = [
 const commonScripts = ["zhihu-clean.js", "Taobao-ads-clean.js", "zhihu-ad-preload.js"];
 
 export function validateMetadata(metadata) {
-  if (metadata.version !== "1.0.0") throw new Error("合集版本固定为 1.0.0");
-  if (!Number.isSafeInteger(metadata.build) || metadata.build < 1) throw new Error("构建号须为正整数");
+  if (typeof metadata.version !== "string" || !/^1\.0\.(0|[1-9]\d*)$/.test(metadata.version)) {
+    throw new Error("合集版本格式为 1.0.N，第三位为构建号");
+  }
+  if (!Number.isSafeInteger(Number(metadata.version.split(".")[2]))) throw new Error("构建号超出整数范围");
+  if ("build" in metadata) throw new Error("构建号使用版本第三位");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(metadata.date)) throw new Error("构建日期须为 YYYY-MM-DD");
 }
 
@@ -100,9 +103,9 @@ export function writeArtifacts(artifacts, outputRoot = root) {
 
 export async function buildProject({ projectRoot = root, check = false, increment = true, now = new Date() } = {}) {
   const metadata = JSON.parse(fs.readFileSync(path.join(projectRoot, metadataPath), "utf8"));
+  validateMetadata(metadata);
   if (!check && increment) {
-    if (!Number.isSafeInteger(metadata.build) || metadata.build < 0) throw new Error("构建号须为非负整数");
-    metadata.build++;
+    metadata.version = `1.0.${Number(metadata.version.split(".")[2]) + 1}`;
     metadata.date = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
     }).format(now);
@@ -123,7 +126,7 @@ async function main() {
     throw new Error("用法：node tools/build.mjs [--check | --no-increment]");
   }
   const { metadata, artifacts } = await buildProject({ check: args[0] === "--check", increment: args.length === 0 });
-  console.log(`1.0.0 (${metadata.build})：` + (args[0] === "--check"
+  console.log(`${metadata.version}：` + (args[0] === "--check"
     ? "构建产物一致"
     : `已生成 Release / Debug 及三种下载源，共 ${artifacts.size} 个文件`));
 }

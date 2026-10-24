@@ -24,7 +24,7 @@ function run(filename, argument, url, body) {
   return { result: JSON.parse(JSON.stringify(result)), logs };
 }
 
-test("committed artifacts reproduce exactly with a shared version and build number", async () => {
+test("committed artifacts reproduce exactly with the build in the third version component", async () => {
   const { generateArtifacts, checkArtifacts } = await builder;
   const artifacts = await generateArtifacts(metadata);
   assert.equal(artifacts.size, 13);
@@ -32,15 +32,18 @@ test("committed artifacts reproduce exactly with a shared version and build numb
   for (const [filename, content] of artifacts) {
     if (!filename.endsWith(".plugin")) continue;
     const debug = filename.includes("-debug");
-    assert(content.includes("#!version=1.0.0\n"), filename);
-    assert(content.includes(`#!build=${metadata.build}\n`), filename);
+    assert(content.includes(`#!version=${metadata.version}\n`), filename);
+    assert(content.includes(`#!date=${metadata.date} · ${metadata.version}\n`), filename);
+    assert(!content.includes("#!build="), filename);
+    assert(!/1\.0\.\d+ \(\d+\)|构建 \d+/.test(content), filename);
     assert.equal((content.match(/^\w+ = switch,/gm) || []).length, debug ? 7 : 4, filename);
     assert.equal((content.match(/^\w+_debug = switch,false,/gm) || []).length, debug ? 3 : 0, filename);
     const scripts = [...content.matchAll(/then script\("([^"]+)"/g)].map(match => match[1]);
     assert.equal(scripts.length, debug ? 5 : 4, filename);
     for (const url of scripts) {
       const parsed = new URL(url);
-      assert.equal(parsed.searchParams.get("build"), String(metadata.build), filename);
+      assert.equal(parsed.searchParams.get("v"), metadata.version, filename);
+      assert(!parsed.searchParams.has("build"), filename);
       const resource = parsed.pathname.match(/dist\/(debug|release)\/scripts\/[^/]+$/)[0];
       assert.equal(resource.split("/")[1], debug ? "debug" : "release");
       assert(artifacts.has(resource), `${filename}: ${url}`);
@@ -154,21 +157,25 @@ test("both build modes preserve all native rules and business script conditions"
   }
 });
 
-test("build increments only the build number and supports checks and reproducible rebuilding", async t => {
+test("build increments only the third version component and supports checks and reproducible rebuilding", async t => {
   const { buildProject, metadataPath, checkArtifacts, writeArtifacts } = await builder;
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ios-ads-build-"));
   t.after(() => fs.rmSync(projectRoot, { recursive: true, force: true }));
   fs.cpSync(path.join(root, "build"), path.join(projectRoot, "build"), { recursive: true });
   fs.cpSync(path.join(root, "scripts"), path.join(projectRoot, "scripts"), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, metadataPath), JSON.stringify({ version: "1.0.9", date: metadata.date }));
   const now = new Date("2026-10-24T16:00:00Z");
   const built = await buildProject({ projectRoot, now });
-  assert.deepEqual(built.metadata, { version: "1.0.0", build: metadata.build + 1, date: "2026-10-25" });
+  assert.deepEqual(built.metadata, { version: "1.0.10", date: "2026-10-25" });
   const snapshot = fs.readFileSync(path.join(projectRoot, metadataPath), "utf8");
   assert.deepEqual((await buildProject({ projectRoot, increment: false })).artifacts, built.artifacts);
   assert.deepEqual((await buildProject({ projectRoot, check: true })).metadata, built.metadata);
   assert.equal(fs.readFileSync(path.join(projectRoot, metadataPath), "utf8"), snapshot);
   for (const [filename, content] of built.artifacts) {
-    if (filename.endsWith(".plugin")) assert(content.includes(`?build=${metadata.build + 1}`));
+    if (filename.endsWith(".plugin")) {
+      assert(content.includes("#!version=1.0.10\n"));
+      assert(content.includes("?v=1.0.10"));
+    }
   }
   const release = path.join(projectRoot, "dist/release/scripts/zhihu-clean.js");
   fs.appendFileSync(release, "changed");
@@ -181,18 +188,18 @@ test("build increments only the build number and supports checks and reproducibl
   assert(!fs.existsSync(path.join(projectRoot, "dist/release/scripts/obsolete.js")));
 });
 
-test("build rejects version changes and invalid build numbers before writing artifacts", async t => {
+test("build validates the version prefix and integer build component before writing artifacts", async t => {
   const { buildProject, generateArtifacts, metadataPath } = await builder;
-  for (const build of [-1, 0, 1.5, "1", Number.MAX_SAFE_INTEGER + 1]) {
-    await assert.rejects(generateArtifacts({ ...metadata, build }), /构建号/);
+  for (const version of ["1.1.0", "2.0.0", "1.0.-1", "1.0.01", "1.0.1.5", "1.0.1-debug", "1.0.9007199254740992", null, 1]) {
+    await assert.rejects(generateArtifacts({ ...metadata, version }), /构建号/);
   }
-  await assert.rejects(generateArtifacts({ ...metadata, version: "1.1.0" }), /固定/);
+  await assert.rejects(generateArtifacts({ ...metadata, build: 1 }), /版本第三位/);
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ios-ads-version-"));
   t.after(() => fs.rmSync(projectRoot, { recursive: true, force: true }));
   fs.mkdirSync(path.join(projectRoot, "build"));
   const changed = JSON.stringify({ ...metadata, version: "1.1.0" });
   fs.writeFileSync(path.join(projectRoot, metadataPath), changed);
-  await assert.rejects(buildProject({ projectRoot }), /固定/);
+  await assert.rejects(buildProject({ projectRoot }), /构建号/);
   assert.equal(fs.readFileSync(path.join(projectRoot, metadataPath), "utf8"), changed);
   assert(!fs.existsSync(path.join(projectRoot, "dist")));
 });
