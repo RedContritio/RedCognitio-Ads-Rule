@@ -54,6 +54,15 @@ test("committed artifacts reproduce exactly with the build in the third version 
   }
 });
 
+test("插件 MITM 不写 %APPEND%（Surge 语法，Loon 当作域名条目）", () => {
+  const mitm = fs.readFileSync(path.join(root, "build/RedCognitio-Ads.plugin.tpl"), "utf8")
+    .match(/\[MITM\]\nhostname = (.+)/)[1];
+  assert(!mitm.includes("%APPEND%"), "hostname 不应包含 %APPEND%");
+  for (const host of ["zhihu.com", "*.zhihu.com", "taobao.com", "*.taobao.com", "music.163.com"]) {
+    assert(mitm.split(/,\s*/).includes(host), host);
+  }
+});
+
 test("Release strips debug code and stays silent even with every debug argument enabled", () => {
   const argument = { zhihu_debug: true, taobao_debug: true, netease_debug: true };
   const cases = [

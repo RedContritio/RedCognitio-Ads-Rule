@@ -40,6 +40,17 @@ Debug 按 App 独立控制脚本日志。知乎、淘宝在对应净化脚本运
 - 需要开启 MITM 并信任 Loon CA；插件已带 hostname。
 - 合集与独立 `.module` 模块择一启用。
 
+## 独立模块
+
+合集之外按应用提供独立模块，规则与合集同步维护；不再列出的即未拆分。
+
+| 应用 | 模块 | 维护文档 |
+|---|---|---|
+| 知乎 | `Zhihu-URL.module`、`Zhihu-Domain.module`、`Zhihu-Dump*.module` | [Zhihu.md](Zhihu.md) |
+| 淘宝 | `Taobao-URL.module` | [Taobao.md](Taobao.md) |
+| 网易云音乐 | `NetEase-CloudMusic-URL.module`、`NetEase-CloudMusic-Domain.module` | [NetEase-CloudMusic.md](NetEase-CloudMusic.md) |
+| 闲鱼 | `Xianyu-URL.module`、`Xianyu-Domain.module`、`Xianyu-Dump.module`（诊断） | [Xianyu.md](Xianyu.md) |
+
 ## 构建
 
 Node.js 20+；规则测试使用 `jq`。

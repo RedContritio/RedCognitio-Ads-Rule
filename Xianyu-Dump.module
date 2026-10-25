@@ -1,0 +1,31 @@
+#!name=闲鱼流量诊断（抓包用）
+#!desc=开启闲鱼-调试后，把广告接口的请求体与完整响应、信息流卡片结构打到 Loon 日志。仅诊断，不做拦截
+#!category=广告拦截
+#!author=RedContritio
+#!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
+#!version=0.1.0
+#!date=2026-10-26 · 0.1.0
+#!loon_version=3.5.1(983)
+#
+# Copyright 2026 RedContritio
+# SPDX-License-Identifier: Apache-2.0
+#
+# 用途：闲鱼走 anet 自研 socket，不遵守系统 HTTP 代理，普通代理抓不到业务接口。
+# 在 Loon 里启用本模块 + 打开「闲鱼-调试」，日志中：
+#   XYDEBUG 进入广告接口的请求方法与 URL
+#   XYDUMP-*  广告接口完整响应（按 1200 字符切段，XYDUMP-BEGIN / XYDUMP-END 包裹）
+#   XYFEED   信息流卡片类型与广告相关键
+# 取完日志后关闭本模块，避免日志膨胀。
+
+[Argument]
+xianyu_debug = switch,false,type=boolean,tag=闲鱼-调试,desc=记录广告接口请求体、完整响应与信息流卡片结构
+
+[Script]
+request if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.taobao\.idlecommerce\.(splash(?:\.async)?\.ads|adx\.bid|game\.iaa\.ads)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/xianyu-debug.js?v=0.1.0", {${xianyu_debug}}) with tag="闲鱼请求诊断"
+
+response if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.taobao\.idlecommerce\.(splash(?:\.async)?\.ads|adx\.bid|game\.iaa\.ads)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/xianyu-dump.js?v=0.1.0", {${xianyu_debug}}) with tag="闲鱼响应抓取", requires_body=true
+
+response if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.(?:taobao\.idle(?:\.home)?\.(?:firstdata|nextfresh|nextnearby)|taobao\.idlehome\.home\.nextfresh|alimama\.zz\.ad\.get)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/xianyu-feed-probe.js?v=0.1.0", {${xianyu_debug}}) with tag="闲鱼信息流探针", requires_body=true
+
+[MITM]
+hostname = taobao.com, *.taobao.com, goofish.com, *.goofish.com
