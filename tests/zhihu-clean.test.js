@@ -409,8 +409,33 @@ test("plugin switches are declared, shared by transport and isolated for ads and
     assert(!tabs.includes("zhihu_enable"), filename);
     const cloud = lines.find(line => line.startsWith("response if") && line.includes("cloud\\/zhihu"));
     assert(cloud.includes("(${zhihu_enable} == true || ${zhihu_purify} == true)"), filename);
-    const preload = lines.find(line => line.startsWith("request if") && line.includes("zhihu-ad-preload.js"));
-    assert(preload.includes("enable=${zhihu_enable}"), filename);
+  }
+});
+
+test("request rules allow image downloads and bare-IP connectivity probes while retaining ad blocking", () => {
+  const requests = [
+    ...["116.162.169.116", "211.97.84.77", "125.88.253.207", "43.242.197.211"].flatMap(host => [
+      `http://${host}/`, `https://${host}/`,
+    ]),
+    ...["pic1", "pic2", "pic3", "pic4", "picx", "pica"].flatMap(host => [
+      `https://${host}.zhimg.com/v2-image.jpg?source=7e7ef6e2&needBackground=1`,
+      `https://${host}.zhimg.com/100/v2-image_qhd.heic`,
+      `https://${host}.zhimg.com/v2-image_r.jpg`,
+    ]),
+  ];
+  for (const filename of variants) {
+    const lines = fs.readFileSync(path.join(__dirname, "..", filename), "utf8").split("\n");
+    const rules = lines.filter(line => line.startsWith("request if"))
+      .map(line => new RegExp(line.match(/~= \/(.*?)\/[i]? (?:then|&&|as)/)[1], "i"));
+    for (const url of requests) {
+      assert(!rules.some(expression => expression.test(url)), `${filename}: ${url}`);
+    }
+    for (const url of [
+      "https://api.zhihu.com/commercial_api/launch_v2",
+      "https://api.zhihu.com/commercial_api/answer/123/bottom-v2",
+      "https://zhstatic.zhihu.com/brand-ad/creative.pag",
+    ]) assert(rules.some(expression => expression.test(url)), `${filename}: ${url}`);
+    assert(!lines.some(line => /^(?:AND|IP-CIDR)/.test(line) && /IP-CIDR/.test(line)), filename);
   }
 });
 

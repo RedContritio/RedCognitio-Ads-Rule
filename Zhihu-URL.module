@@ -3,15 +3,15 @@
 #!category=广告拦截
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=1.1.0
-#!date=2026-10-24 · 1.1.0
+#!version=1.1.1
+#!date=2026-10-25 · 1.1.1
 #!loon_version=3.5.1(983)
 #
 # Copyright 2026 RedContritio
 # SPDX-License-Identifier: Apache-2.0
 
 [Argument]
-zhihu_enable = switch,true,type=boolean,tag=知乎-去广告,desc=过滤广告位、推广内容与广告预加载
+zhihu_enable = switch,true,type=boolean,tag=知乎-去广告,desc=过滤广告位与推广内容
 zhihu_purify = switch,true,type=boolean,tag=知乎-净化,desc=隐藏首页视频、仅看当前问题、跳过会员受限回答并精简界面
 zhihu_debug = switch,false,type=boolean,tag=知乎-调试,desc=记录过滤计数、解析错误与完整搜索响应
 
@@ -25,16 +25,6 @@ DOMAIN-SUFFIX,pangolin-sdk-toutiao1.com,REJECT-DICT,extended-matching,pre-matchi
 DOMAIN-SUFFIX,pangolin-sdk-toutiao-b.com,REJECT-DICT,extended-matching,pre-matching
 DOMAIN-SUFFIX,gdt.qq.com,REJECT-DICT,extended-matching,pre-matching
 DOMAIN-SUFFIX,tanx.com,REJECT-DICT,extended-matching,pre-matching
-
-# [实验] 443 裸 IP 广告预加载（来自 2026-10-23 18:38 日志）。
-# 80 端口已由 [Script] 回 {}；这里只封 443，避免同时封 80/443 导致页面卡死。
-# 先只启用 106.13.249.166 观察是否卡顿；正常再逐条放开。IP 会轮换，需按日志追加。
-# 若出现转圈/无法下滑，立即全部注释回去。
-# AND,((IP-CIDR,106.13.249.166/32),(DEST-PORT,443)),REJECT
-# AND,((IP-CIDR,125.88.253.207/32),(DEST-PORT,443)),REJECT
-# AND,((IP-CIDR,106.13.249.249/32),(DEST-PORT,443)),REJECT
-# AND,((IP-CIDR,182.61.194.9/32),(DEST-PORT,443)),REJECT
-# AND,((IP-CIDR,43.242.197.211/32),(DEST-PORT,443)),REJECT
 
 [Rewrite]
 # ══ 传输层：改写云配置禁用 HTTPDNS 与 QUIC ══
@@ -86,12 +76,6 @@ request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/zhstatic\.zhihu\.co
 # sugar.zhihu.com 兼作网络探活域（/check_health），故按路径拦而非整域
 
 [Script]
-response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-clean.js?v=1.1.0", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
-
-# 广告预取：裸 IP + 根路径 + 知乎 App UA，脚本返回 200 + {}。
-# 不用规则拒绝——实测规则的实际策略会变为 REJECT-DROP（无响应，客户端等超时；
-# 该切换机制未见于官方文档）。广告预取位于回答页加载路径上，实测会卡住页面。
-request if ${url} ~= /^http:\/\/\d+\.\d+\.\d+\.\d+\/$/ && ${request.header['User-Agent']} ~= /osee2unifiedRelease/ then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-ad-preload.js") with enable=${zhihu_enable}, tag="知乎广告预取"
-
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-clean.js?v=1.1.1", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
 [MITM]
 hostname = zhihu.com, *.zhihu.com

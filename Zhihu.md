@@ -11,10 +11,9 @@
 | [Zhihu-URL.module](Zhihu-URL.module) | 知乎路径规则、脚本路由、MITM |
 | [Zhihu-Domain.module](Zhihu-Domain.module) | 知乎域名规则 |
 | [zhihu-clean.js](scripts/zhihu-clean.js) | JSON 广告清理与内容净化 |
-| [zhihu-ad-preload.js](scripts/zhihu-ad-preload.js) | 裸 IP HTTP 预加载响应 |
 | [zhihu-clean.test.js](tests/zhihu-clean.test.js) | 自动测试 |
 
-- **去广告**：广告接口、广告卡、推广字段、预加载。
+- **去广告**：广告接口、广告卡、推广字段。
 - **净化**：首页视频、当前问题回答流、会员内容、会员入口、界面精简。
 - **调试**：Debug 合集与独立路径模块提供，默认关闭；开启后记录过滤计数、解析错误与完整搜索响应。
 - **常驻**：域名与 QUIC 规则。完全停用时关闭插件；合集与独立模块择一启用。
@@ -55,7 +54,6 @@
 | `zhida.zhihu.com/ai_ingress/knowledge/square/categories/feeds`、`/ai_ingress/ai_chat/guidance` | 净化；`200 + {}` | 参考实现 | 静态参考 |
 | `/search/recommend_query/vN` | 净化；推荐词只留 `type=normal` | 参考实现、哲也 | 静态参考 |
 | `/podcasts/hub/vN` | 净化；删 `banners` | 参考实现 | 静态参考 |
-| `http://裸IPv4/` 且 UA 含 `osee2unifiedRelease` | 去广告；脚本返回 `200 + {}` | 本机 | 历史请求日志、脚本模拟 |
 
 ## 内容脚本
 
@@ -86,7 +84,7 @@
 | `kwaizt.com` 后缀 | `REJECT` | 本地联盟规则补充；静态参考 |
 | 合集共享监测域 | 精确 `DOMAIN` 拒绝 | 合集共享监测名单；静态参考 |
 
-`api.zhihu.com`、图片 CDN、`sugar.zhihu.com` 与 `open.kuaishouzt.com` 保留业务访问，广告按路径处理。裸 IP 443 拒绝规则保持注释。
+`api.zhihu.com`、图片 CDN、`sugar.zhihu.com` 与 `open.kuaishouzt.com` 保留业务访问，广告按路径处理。裸 IP 根路径与 CDN 连通性探测保持放行。
 
 ## 修改与验证
 

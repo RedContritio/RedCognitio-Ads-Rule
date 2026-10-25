@@ -11,7 +11,7 @@ const mirrors = [
   { suffix: "-ghproxy", label: "ghproxy 镜像", base: `https://gh-proxy.com/https://raw.githubusercontent.com/${repository}/refs/heads/main` },
   { suffix: "-jsdelivr", label: "jsDelivr 镜像", base: `https://cdn.jsdelivr.net/gh/${repository}@main` },
 ];
-const commonScripts = ["zhihu-clean.js", "Taobao-ads-clean.js", "zhihu-ad-preload.js"];
+const commonScripts = ["zhihu-clean.js", "Taobao-ads-clean.js"];
 
 export function validateMetadata(metadata) {
   if (typeof metadata.version !== "string" || !/^1\.0\.(0|[1-9]\d*)$/.test(metadata.version)) {

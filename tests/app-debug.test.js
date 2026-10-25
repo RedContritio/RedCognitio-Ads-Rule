@@ -128,12 +128,13 @@ test("all distributions declare default-off flags and pass only the owning debug
     for (const app of apps) {
       assert.equal(lines.filter(line => line.startsWith(`${app}_debug = switch,false,type=boolean,`)).length, 1, file);
     }
-    for (const line of lines.filter(line => line.includes("then script(") && !line.includes("zhihu-ad-preload.js"))) {
+    for (const line of lines.filter(line => line.includes("then script("))) {
       const app = line.includes("Taobao-ads-clean.js") ? "taobao" : line.includes("netease-debug.js") ? "netease" : "zhihu";
       assert(line.includes('${' + app + '_debug}'), file);
       const args = line.match(/, \{(.*?)\}\) with/)[1];
       for (const other of ["zhihu", "taobao", "netease"].filter(name => name !== app)) assert(!args.includes(other + "_debug"), file);
-      assert(line.includes(file.endsWith(".plugin") ? "?v=1.0." : app === "zhihu" ? "?v=1.1.0" : "?v=0.2.0"), file);
+      const version = file.endsWith(".plugin") ? "1.0." : lines.find(line => line.startsWith("#!version=")).slice(10);
+      assert(line.includes("?v=" + version), file);
       if (app === "netease" || file.includes("Dump")) {
         assert(line.startsWith(`request if \${${app}_debug} == true &&`) || line.startsWith(`response if \${${app}_debug} == true &&`), file);
         if (app === "netease") assert(!line.includes("requires_body=true"), file);

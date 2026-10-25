@@ -27,7 +27,7 @@ function run(filename, argument, url, body) {
 test("committed artifacts reproduce exactly with the build in the third version component", async () => {
   const { generateArtifacts, checkArtifacts } = await builder;
   const artifacts = await generateArtifacts(metadata);
-  assert.equal(artifacts.size, 13);
+  assert.equal(artifacts.size, 11);
   checkArtifacts(artifacts);
   for (const [filename, content] of artifacts) {
     if (!filename.endsWith(".plugin")) continue;
@@ -39,7 +39,7 @@ test("committed artifacts reproduce exactly with the build in the third version 
     assert.equal((content.match(/^\w+ = switch,/gm) || []).length, debug ? 7 : 4, filename);
     assert.equal((content.match(/^\w+_debug = switch,false,/gm) || []).length, debug ? 3 : 0, filename);
     const scripts = [...content.matchAll(/then script\("([^"]+)"/g)].map(match => match[1]);
-    assert.equal(scripts.length, debug ? 5 : 4, filename);
+    assert.equal(scripts.length, debug ? 4 : 3, filename);
     for (const url of scripts) {
       const parsed = new URL(url);
       assert.equal(parsed.searchParams.get("v"), metadata.version, filename);
@@ -59,7 +59,6 @@ test("Release strips debug code and stays silent even with every debug argument 
   const cases = [
     ["zhihu-clean.js", "https://api.zhihu.com/search_v3", '{"data":[{"type":"feed_advert"}]}'],
     ["Taobao-ads-clean.js", "https://poplayer.template.alibaba.com/test.json", '{"enable":true}'],
-    ["zhihu-ad-preload.js", "http://192.0.2.1/", ""],
   ];
   assert.deepEqual(fs.readdirSync(path.join(root, "dist/release/scripts")).sort(), cases.map(item => item[0]).sort());
   for (const [script, url, body] of cases) {
@@ -124,14 +123,13 @@ test("compiled Debug retains full search diagnostics and independent default-off
   }
 });
 
-test("compiled Taobao and preload behavior match source in both builds", () => {
+test("compiled Taobao behavior matches source in both builds", () => {
   const cases = [
     ["Taobao-ads-clean.js", "https://guide-acs.m.taobao.com/gw/mtop.taobao.wireless.home.splash.awesome.get", {
       data: { containers: { splash_home_base: { base: { sections: [{ bizData: { "taobao-splash": { data: [{ imgUrl: "ad.jpg", videoUrl: "ad.mp4" }] } } }] } } } },
     }],
     ["Taobao-ads-clean.js", "https://guide-acs.m.taobao.com/gw/mtop.taobao.cloudvideo.video.query", { data: { duration: "10", resources: ["ad"], caches: ["ad"] } }],
     ["Taobao-ads-clean.js", "https://poplayer.template.alibaba.com/test.json", { enable: true, res: { images: ["ad"], videos: ["ad"] }, mainRes: { images: ["ad"] } }],
-    ["zhihu-ad-preload.js", "http://192.0.2.1/", {}],
   ];
   for (const [script, url, body] of cases) {
     for (const raw of [JSON.stringify(body), "{}", "null", "not-json", ""]) {
