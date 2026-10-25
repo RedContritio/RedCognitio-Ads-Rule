@@ -27,11 +27,13 @@
 | 包分析 | Android 11.5.0 的接口、模型、域名及广告模板 |
 | 参考实现 | 可莉 / RuCu6 历史规则 |
 | 哲也 | [blackmatrix7 AllInOne](https://github.com/blackmatrix7/ios_rule_script/blob/master/rewrite/Surge/AllInOne/AllInOne.sgmodule) 引用的[脚本](https://gist.githubusercontent.com/blackmatrix7/f5f780d0f56b319b6ad9848fd080bb18/raw/zheye.min.js)，提供回答流与视频识别参考 |
-| 本机 | 2026-10-23 至 24 日 iOS 抓包、Loon 日志、响应回放及用户测试 |
+| 本机 | 2026-10-23 至 24 日 iOS 抓包、Loon 日志与响应回放；25 日用户真机回测 |
 
 验证状态：**真机确认**＝用户确认页面效果；**真实回放**＝使用抓到的响应核对结果；**自动测试**＝合成样本与配置断言；**静态参考**＝包分析或历史规则核对。
 
 ## 接口规则
+
+去广告通过广告接口拦截、响应内容过滤和广告域名拦截生效。
 
 路径与正则以配置为准；`vN` 表示版本号，`ID` 表示内容 ID。相同处理的规则合并列示。
 
@@ -65,6 +67,7 @@
 | 回答间广告 | 去广告；移除回答流 `data[]` 的 `type=ad` | 哲也、本机 | 真机确认；25 项样本保留 22 项 |
 | 首页推广 | 去广告；检查结构化 `promotion.is_card`、`commercial_promotion_rpc_extra`，移除 `plutus_card_*`、`brand_card_*` 子卡 | 包分析、本机 | 自动测试；13 项样本保留 10 项 |
 | 详情广告位 | 去广告；删 `third_business` 和所有 `type=card` 结构段 | 参考实现 | 字段开关测试；结构段为静态参考 |
+| 正文图片与大图 | 保留图片结构段、图片地址、原图地址与尺寸 | 本机 | 6 份真实响应的 21 个图片段完整保留；用户回测正常 |
 | 首页视频 | 净化；按视频类型及组件识别，保留普通图片和回答详情视频 | 哲也、用户需求 | 自动测试 |
 | 会员受限列表项 | 净化；购买状态、`purchase_required`、会员提示及 `KfeCollection-PurchaseBtn`；显式免费、已购优先保留 | 包分析、用户需求 | 自动测试 |
 | 课程、盐选小说商品卡 | 净化；外层 `knowledge_ad`，内层 `knowledge_vip` 或 `album_paid_column` / `paid_column_chapter` 商品类型 | 本机 | 真机确认；20 项真实响应移除 4 张商品卡 |
@@ -84,7 +87,7 @@
 | `kwaizt.com` 后缀 | `REJECT` | 本地联盟规则补充；静态参考 |
 | 合集共享监测域 | 精确 `DOMAIN` 拒绝 | 合集共享监测名单；静态参考 |
 
-`api.zhihu.com`、图片 CDN、`sugar.zhihu.com` 与 `open.kuaishouzt.com` 保留业务访问，广告按路径处理。裸 IP 根路径与 CDN 连通性探测保持放行。
+`api.zhihu.com`、图片 CDN、`sugar.zhihu.com` 与 `open.kuaishouzt.com` 保留业务访问，广告按路径处理。
 
 ## 修改与验证
 
