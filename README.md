@@ -2,7 +2,7 @@
 
 合集版本格式为 **1.0.N**，第三位为构建号，按 `1.0.0 → 1.0.1 → 1.0.2` 递增。
 
-Loon 3.5.1（983）及以上版本插件，按应用开关：**知乎 / 淘宝 / 网易云音乐 / 哔咔**。
+Loon 3.5.1（983）及以上版本插件，按应用开关：**知乎 / 淘宝 / 网易云音乐 / 哔咔 / 高德**。
 
 ## 安装
 
@@ -10,14 +10,14 @@ Loon 3.5.1（983）及以上版本插件，按应用开关：**知乎 / 淘宝 /
 
 | 构建 | 安装地址 | 设置 |
 |---|---|---|
-| Release | [RedCognitio-Ads-ghproxy.plugin](https://gh-proxy.com/https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/RedCognitio-Ads-ghproxy.plugin) | 五个功能开关，脚本仅保留过滤逻辑 |
-| Debug | [RedCognitio-Ads-debug-ghproxy.plugin](https://gh-proxy.com/https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/RedCognitio-Ads-debug-ghproxy.plugin) | 五个功能开关、四个默认关闭的调试开关 |
+| Release | [RedCognitio-Ads-ghproxy.plugin](https://gh-proxy.com/https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/RedCognitio-Ads-ghproxy.plugin) | 六个功能开关，脚本仅保留过滤逻辑 |
+| Debug | [RedCognitio-Ads-debug-ghproxy.plugin](https://gh-proxy.com/https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/RedCognitio-Ads-debug-ghproxy.plugin) | 六个功能开关、五个默认关闭的调试开关 |
 
 直连使用同名去掉 `-ghproxy` 的文件；jsDelivr 使用 `-jsdelivr.plugin` 文件。两种构建择一启用。
 
 ## 设置页
 
-Release 提供前五项；Debug 提供全部九项：
+Release 提供前六项；Debug 提供全部十一项：
 
 | 开关 | 默认 | 作用 |
 |---|---|---|
@@ -26,16 +26,18 @@ Release 提供前五项；Debug 提供全部九项：
 | 淘宝-去广告 | 开 | 淘宝开屏、TopShow、poplayer 弹层、HEIC 开屏兜底 |
 | 网易云音乐-去广告 | 开 | 网易云广告接口、开屏、素材 CDN |
 | 哔咔-去广告 | 开 | 哔咔广告服务器（iOS 原生与 PicaWeb 共用）、PicaWeb 注入与阅读器广告页跳过 |
+| 高德地图-去广告 | 开 | 改写阿里妈妈开屏下发与实时「秒开」两条接口的响应，并清空本地素材池 |
 | 知乎-调试 | 关 | `ZHCLEAN` 过滤计数、解析错误，`ZHSEARCH-*` 完整搜索响应 |
 | 淘宝-调试 | 关 | `TBCLEAN` 响应净化结果、JSON 解析错误 |
 | 网易云音乐-调试 | 关 | `NCMDEBUG` 进入脚本的 API 请求方法与 URL |
 | 哔咔-调试 | 关 | `PICA-CLEAN-*` 注入命中与跳过注入的原因 |
+| 高德地图-调试 | 关 | `AMDEBUG` 开屏接口真实主机名，`AMDUMP-*` 完整响应 |
 
-去广告与净化开关控制对应的 Rewrite / Script；知乎响应脚本与网络配置改写由去广告或净化启用。**域名与 QUIC 规则常驻**——哔咔的开关只控制 PicaWeb 注入，iOS 原生客户端不解析 HTML，靠域名规则即可；完全停用需关闭插件。
+去广告与净化开关控制对应的 Rewrite / Script；知乎响应脚本与网络配置改写由去广告或净化启用。**域名与 QUIC 规则常驻**——哔咔的开关只控制 PicaWeb 注入，iOS 原生客户端不解析 HTML，靠域名规则即可；高德只有两条接口、没有可常驻的广告域，开关直接管住这两条。完全停用需关闭插件。
 
-Debug 按 App 独立控制脚本日志。知乎、淘宝在对应净化脚本运行时输出；网易云按需启用请求记录脚本。原生规则的拦截记录在 Loon 请求记录中查看。独立路径模块也提供对应调试开关。
+Debug 按 App 独立控制脚本日志。知乎、淘宝在对应净化脚本运行时输出；网易云、高德按需启用请求 / 响应记录脚本。原生规则的拦截记录在 Loon 请求记录中查看。独立路径模块也提供对应调试开关。
 
-知乎规则目标、来源与验证状态见 [维护清单](Zhihu.md)；哔咔见 [Pica.md](Pica.md)。
+维护清单：[知乎](Zhihu.md)、[淘宝](Taobao.md)、[网易云音乐](NetEase-CloudMusic.md)、[闲鱼](Xianyu.md)、[哔咔](Pica.md)、[高德](Amap.md)。
 
 ## 说明
 
@@ -53,6 +55,8 @@ Debug 按 App 独立控制脚本日志。知乎、淘宝在对应净化脚本运
 | 网易云音乐 | `NetEase-CloudMusic-URL.module`、`NetEase-CloudMusic-Domain.module` | [NetEase-CloudMusic.md](NetEase-CloudMusic.md) |
 | 闲鱼 | `Xianyu-URL.module`、`Xianyu-Domain.module`、`Xianyu-Dump.module`（诊断） | [Xianyu.md](Xianyu.md) |
 | 哔咔漫画 | `Pica-URL.module`、`Pica-Domain.module` | [Pica.md](Pica.md) |
+
+高德只有两条开屏接口、没有能常驻的广告域，规则与开关都并在合集里，不单独拆模块。
 
 ## 构建
 

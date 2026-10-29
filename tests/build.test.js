@@ -27,7 +27,7 @@ function run(filename, argument, url, body) {
 test("committed artifacts reproduce exactly with the build in the third version component", async () => {
   const { generateArtifacts, checkArtifacts } = await builder;
   const artifacts = await generateArtifacts(metadata);
-  assert.equal(artifacts.size, 13);
+  assert.equal(artifacts.size, 14);
   checkArtifacts(artifacts);
   for (const [filename, content] of artifacts) {
     if (!filename.endsWith(".plugin")) continue;
@@ -36,10 +36,10 @@ test("committed artifacts reproduce exactly with the build in the third version 
     assert(content.includes(`#!date=${metadata.date} · ${metadata.version}\n`), filename);
     assert(!content.includes("#!build="), filename);
     assert(!/1\.0\.\d+ \(\d+\)|构建 \d+/.test(content), filename);
-    assert.equal((content.match(/^\w+ = switch,/gm) || []).length, debug ? 9 : 5, filename);
-    assert.equal((content.match(/^\w+_debug = switch,false,/gm) || []).length, debug ? 4 : 0, filename);
+    assert.equal((content.match(/^\w+ = switch,/gm) || []).length, debug ? 11 : 6, filename);
+    assert.equal((content.match(/^\w+_debug = switch,false,/gm) || []).length, debug ? 5 : 0, filename);
     const scripts = [...content.matchAll(/then script\("([^"]+)"/g)].map(match => match[1]);
-    assert.equal(scripts.length, debug ? 5 : 4, filename);
+    assert.equal(scripts.length, debug ? 6 : 4, filename);
     for (const url of scripts) {
       const parsed = new URL(url);
       assert.equal(parsed.searchParams.get("v"), metadata.version, filename);
@@ -155,9 +155,9 @@ test("compiled Taobao behavior matches source in both builds", () => {
 
 test("both build modes preserve all native rules and business script conditions", () => {
   function rules(source) {
-    return source.split("\n").filter(line => !/^#!|^\w+_debug = |netease-debug\.js/.test(line))
+    return source.split("\n").filter(line => !/^#!|^\w+_debug = |netease-debug\.js|amap-dump\.js/.test(line))
       .map(line => line.replaceAll(", ${zhihu_debug}", "").replaceAll(", {${taobao_debug}}", "")
-        .replaceAll(", ${pica_debug}", "")
+        .replaceAll(", ${pica_debug}", "").replaceAll(", {${amap_debug}}", "")
         .replace(/https:[^"]+\/dist\/(release|debug)\/scripts\//g, "scripts/"))
       .join("\n").trim();
   }
