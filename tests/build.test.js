@@ -27,7 +27,7 @@ function run(filename, argument, url, body) {
 test("committed artifacts reproduce exactly with the build in the third version component", async () => {
   const { generateArtifacts, checkArtifacts } = await builder;
   const artifacts = await generateArtifacts(metadata);
-  assert.equal(artifacts.size, 11);
+  assert.equal(artifacts.size, 13);
   checkArtifacts(artifacts);
   for (const [filename, content] of artifacts) {
     if (!filename.endsWith(".plugin")) continue;
@@ -36,10 +36,10 @@ test("committed artifacts reproduce exactly with the build in the third version 
     assert(content.includes(`#!date=${metadata.date} · ${metadata.version}\n`), filename);
     assert(!content.includes("#!build="), filename);
     assert(!/1\.0\.\d+ \(\d+\)|构建 \d+/.test(content), filename);
-    assert.equal((content.match(/^\w+ = switch,/gm) || []).length, debug ? 7 : 4, filename);
-    assert.equal((content.match(/^\w+_debug = switch,false,/gm) || []).length, debug ? 3 : 0, filename);
+    assert.equal((content.match(/^\w+ = switch,/gm) || []).length, debug ? 9 : 5, filename);
+    assert.equal((content.match(/^\w+_debug = switch,false,/gm) || []).length, debug ? 4 : 0, filename);
     const scripts = [...content.matchAll(/then script\("([^"]+)"/g)].map(match => match[1]);
-    assert.equal(scripts.length, debug ? 4 : 3, filename);
+    assert.equal(scripts.length, debug ? 5 : 4, filename);
     for (const url of scripts) {
       const parsed = new URL(url);
       assert.equal(parsed.searchParams.get("v"), metadata.version, filename);
@@ -58,7 +58,7 @@ test("插件 MITM 不写 %APPEND%（Surge 语法，Loon 当作域名条目）", 
   const mitm = fs.readFileSync(path.join(root, "build/RedCognitio-Ads.plugin.tpl"), "utf8")
     .match(/\[MITM\]\nhostname = (.+)/)[1];
   assert(!mitm.includes("%APPEND%"), "hostname 不应包含 %APPEND%");
-  for (const host of ["zhihu.com", "*.zhihu.com", "taobao.com", "*.taobao.com", "music.163.com"]) {
+  for (const host of ["zhihu.com", "*.zhihu.com", "taobao.com", "*.taobao.com", "music.163.com", "manhuabika.com", "*.manhuabika.com"]) {
     assert(mitm.split(/,\s*/).includes(host), host);
   }
 });
@@ -69,7 +69,8 @@ test("Release strips debug code and stays silent even with every debug argument 
     ["zhihu-clean.js", "https://api.zhihu.com/search_v3", '{"data":[{"type":"feed_advert"}]}'],
     ["Taobao-ads-clean.js", "https://poplayer.template.alibaba.com/test.json", '{"enable":true}'],
   ];
-  assert.deepEqual(fs.readdirSync(path.join(root, "dist/release/scripts")).sort(), cases.map(item => item[0]).sort());
+  assert.deepEqual(fs.readdirSync(path.join(root, "dist/release/scripts")).sort(),
+    [...cases.map(item => item[0]), "pica-clean.js"].sort());
   for (const [script, url, body] of cases) {
     const filename = `dist/release/scripts/${script}`;
     const source = fs.readFileSync(path.join(root, filename), "utf8");
@@ -114,10 +115,11 @@ test("compiled Debug retains full search diagnostics and independent default-off
     ["zhihu-clean.js", "zhihu_debug", "https://api.zhihu.com/search_v3", body],
     ["Taobao-ads-clean.js", "taobao_debug", "https://poplayer.template.alibaba.com/test.json", '{"enable":true}'],
     ["netease-debug.js", "netease_debug", "https://music.163.com/eapi/batch", ""],
+    ["pica-clean.js", "pica_debug", "https://manhuabika.com/", '<!DOCTYPE html><html><head><meta name="application-name" content="PicaWeb"></head><body></body></html>'],
   ];
   for (const [script, flag, url, raw] of cases) {
     const filename = `dist/debug/scripts/${script}`;
-    const otherFlags = Object.fromEntries(["zhihu_debug", "taobao_debug", "netease_debug"].filter(key => key !== flag).map(key => [key, true]));
+    const otherFlags = Object.fromEntries(["zhihu_debug", "taobao_debug", "netease_debug", "pica_debug"].filter(key => key !== flag).map(key => [key, true]));
     for (const argument of [undefined, { [flag]: false }, otherFlags]) {
       assert.deepEqual(run(filename, argument, url, raw).logs, []);
     }
@@ -155,6 +157,7 @@ test("both build modes preserve all native rules and business script conditions"
   function rules(source) {
     return source.split("\n").filter(line => !/^#!|^\w+_debug = |netease-debug\.js/.test(line))
       .map(line => line.replaceAll(", ${zhihu_debug}", "").replaceAll(", {${taobao_debug}}", "")
+        .replaceAll(", ${pica_debug}", "")
         .replace(/https:[^"]+\/dist\/(release|debug)\/scripts\//g, "scripts/"))
       .join("\n").trim();
   }

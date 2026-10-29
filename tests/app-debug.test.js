@@ -124,7 +124,7 @@ test("all distributions declare default-off flags and pass only the owning debug
     ["Pica-URL.module", ["pica"]],
     ["Zhihu-Dump.module", ["zhihu"]], ["Zhihu-Dump-ghproxy.module", ["zhihu"]],
   ];
-  for (const [file, apps] of [...plugins.map(file => [file, ["zhihu", "taobao", "netease"]]), ...modules]) {
+  for (const [file, apps] of [...plugins.map(file => [file, ["zhihu", "taobao", "netease", "pica"]]), ...modules]) {
     const lines = fs.readFileSync(path.join(root, file), "utf8").split("\n");
     for (const app of apps) {
       assert.equal(lines.filter(line => line.startsWith(`${app}_debug = switch,false,type=boolean,`)).length, 1, file);

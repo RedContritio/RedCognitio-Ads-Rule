@@ -1,9 +1,9 @@
 #!name=RedCognitio 去广告合集（Debug · jsDelivr 镜像）
-#!desc=知乎 / 淘宝 / 网易云音乐，按应用开关；Debug · 1.0.2；jsDelivr 镜像；需 MITM，Loon 3.5.1+
+#!desc=知乎 / 淘宝 / 网易云音乐 / 哔咔，按应用开关；Debug · 1.0.3；jsDelivr 镜像；需 MITM，Loon 3.5.1+
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=1.0.2
-#!date=2026-10-29 · 1.0.2
+#!version=1.0.3
+#!date=2026-10-29 · 1.0.3
 #!loon_version=3.5.1(983)
 #!category=广告拦截
 #!type=normal
@@ -16,9 +16,11 @@ zhihu_enable = switch,true,type=boolean,tag=知乎-去广告,desc=过滤广告�
 zhihu_purify = switch,true,type=boolean,tag=知乎-净化,desc=隐藏首页视频、仅看当前问题、跳过会员受限回答并精简界面
 taobao_enable = switch,true,type=boolean,tag=淘宝-去广告,desc=关闭后停止淘宝开屏与 poplayer 净化
 netease_enable = switch,true,type=boolean,tag=网易云音乐-去广告,desc=关闭后停止网易云广告接口拦截
+pica_enable = switch,true,type=boolean,tag=哔咔-去广告,desc=PicaWeb 注入去广告样式并自动翻过阅读器广告页；iOS 原生客户端由域名规则覆盖
 zhihu_debug = switch,false,type=boolean,tag=知乎-调试,desc=记录过滤计数、解析错误与完整搜索响应
 taobao_debug = switch,false,type=boolean,tag=淘宝-调试,desc=记录响应净化结果与解析错误
 netease_debug = switch,false,type=boolean,tag=网易云音乐-调试,desc=记录进入脚本的 API 请求方法与 URL
+pica_debug = switch,false,type=boolean,tag=哔咔-调试,desc=记录注入命中与跳过注入的原因
 
 # 说明：DOMAIN 级广告域规则不带开关，只封广告域，不会影响 App 正常功能。
 # 需要完全关闭某个 App 时，直接把对应开关关掉即可；广告域本身不会造成业务影响。
@@ -101,6 +103,17 @@ DOMAIN,doubleclick.net,REJECT,extended-matching,pre-matching
 # DOMAIN,iad.g.163.com,REJECT
 # DOMAIN,ad.bn.netease.com,REJECT
 
+# QUIC 无法 MITM；Cloudflare 对 h3 有 Alt-Svc，浏览器用上 h3 后哔咔注入静默失效
+AND,((DOMAIN-SUFFIX,manhuabika.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,picacomic.com),(PROTOCOL,QUIC)),REJECT
+
+# 哔咔自建广告服务器：/get-ad-zones 下发、/redirect 跳转、/medias 素材、/android/* H5 广告页
+# iOS 原生客户端（Flutter AdRemoteDataSource）与 PicaWeb 共用这个域；API 域会轮换，广告域不换
+DOMAIN-SUFFIX,diwodiwo.xyz,REJECT,extended-matching,pre-matching
+
+# 旧版 Android 客户端的 H5 广告位宿主，2026-10-29 实测已不响应，保留防回切
+DOMAIN,pica-juicy.picacomic.com,REJECT,extended-matching,pre-matching
+
 [Rewrite]
 # 淘宝：TopShow 顶展、poplayer 配置、HEIC 开屏兜底（原先的 URL-REGEX 规则，改为按开关生效）
 request if ${taobao_enable} == true && ${url} ~= /\/mtop\.alimama\.topshow\.query/ then reject(404)
@@ -167,18 +180,21 @@ response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhi
 # request if ${zhihu_enable} == true && ${url} ~= /^https:\/\/page-info\.zhihu\.com\/(answers|articles)\/v2\//i then reject_dict(200)
 
 [Script]
-request if ${netease_debug} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\//i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/debug/scripts/netease-debug.js?v=1.0.2", {${netease_debug}}) with tag="网易云音乐调试"
+request if ${netease_debug} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\//i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/debug/scripts/netease-debug.js?v=1.0.3", {${netease_debug}}) with tag="网易云音乐调试"
 
 # 开屏图片与视频
-response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.2", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
+response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.3", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
 
 # 开屏活动（poplayer 远程模板）
-response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.2", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
+response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.3", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
 
 # 不拦：首页主数据 / 推荐流 / newface 首页 / 商品详情 / 购物车 / 订单 / 搜索 /
 #       mtop 网关 / 会场 H5 / gw.alicdn.com 商品图 / dinamicx 弹窗模板
 
 
-response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/debug/scripts/zhihu-clean.js?v=1.0.2", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
+# 哔咔：PicaWeb 页面注入（路径无扩展名才可能是 SPA 的 HTML，assets 与接口不进脚本）
+response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/debug/scripts/pica-clean.js?v=1.0.3", {${pica_enable}, ${pica_debug}}) with tag="哔咔去广告注入", requires_body=true
+
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/debug/scripts/zhihu-clean.js?v=1.0.3", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
 [MITM]
-hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com
+hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com

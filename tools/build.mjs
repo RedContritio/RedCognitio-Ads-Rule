@@ -11,7 +11,7 @@ const mirrors = [
   { suffix: "-ghproxy", label: "ghproxy 镜像", base: `https://gh-proxy.com/https://raw.githubusercontent.com/${repository}/refs/heads/main` },
   { suffix: "-jsdelivr", label: "jsDelivr 镜像", base: `https://cdn.jsdelivr.net/gh/${repository}@main` },
 ];
-const commonScripts = ["zhihu-clean.js", "Taobao-ads-clean.js"];
+const commonScripts = ["zhihu-clean.js", "Taobao-ads-clean.js", "pica-clean.js"];
 
 export function validateMetadata(metadata) {
   if (typeof metadata.version !== "string" || !/^1\.0\.(0|[1-9]\d*)$/.test(metadata.version)) {
@@ -56,7 +56,9 @@ export async function generateArtifacts(metadata, sourceRoot = root) {
         plugin = plugin.split("\n").filter(line =>
           !/^\w+_debug = /.test(line) && !line.includes("netease-debug.js")
         ).join("\n");
-        plugin = plugin.replaceAll(", ${zhihu_debug}", "").replaceAll(", {${taobao_debug}}", "");
+        plugin = plugin.replaceAll(", ${zhihu_debug}", "")
+          .replaceAll(", {${taobao_debug}}", "")
+          .replaceAll(", ${pica_debug}", "");
       }
       plugin = plugin.replace(/\{\{(\w+)\}\}/g, (_, key) => {
         if (!(key in values)) throw new Error(`未知模板变量：${key}`);
