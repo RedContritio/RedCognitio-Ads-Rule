@@ -66,6 +66,40 @@ function rewriteAnswerUrl(url, filename, enabled = true) {
   ));
 }
 
+test("详情页只删带广告标记的 card 段，正文卡片与图片保留", () => {
+  const body = {
+    type: "pin",
+    third_business: { ads: [] },
+    structured_content: { segments: [
+      { type: "image", src: "https://pic1.zhimg.com/pin.jpg" },
+      { type: "card", card: { card_type: "reward_tail_truncate" }, id: "" },
+      { type: "card", subtype: "free_column_card" },
+      { type: "card", card: { card_type: "ad_creative" } },
+      { type: "card", card: { card_type: "pin_image", ad_info: { x: 1 } } },
+      { type: "paragraph", text: "hello" },
+    ] },
+  };
+  const out = clean(body, { url: "https://api.zhihu.com/pins/v2/2097062424318850643?single_content=1" });
+  assert.equal("third_business" in out, false);
+  // ad_creative 按 card_type 判定删除；pin_image 只是带 ad_info 的图文卡，ad_info 被 scrub 清掉后保留
+  assert.deepEqual(out.structured_content.segments.map((s) => s.card?.card_type || s.subtype || s.type),
+    ["image", "reward_tail_truncate", "free_column_card", "pin_image", "paragraph"]);
+  assert.equal("ad_info" in out.structured_content.segments[3].card, false);
+});
+
+test("详情页普通 card 段多的响应不会被清空", () => {
+  const body = {
+    type: "answer",
+    structured_content: { segments: [
+      { type: "card", card: { card_type: "reward_tail_truncate" } },
+      { type: "card", card: { card_type: "video_card" } },
+      { type: "card", card: { card_type: "pin_image" } },
+    ] },
+  };
+  const out = clean(body, { url: "https://api.zhihu.com/v4/answers/123" });
+  assert.equal(out.structured_content.segments.length, 3);
+});
+
 test("answer scrolling requests the current question regardless of query order", () => {
   for (const filename of variants) {
     for (const endpoint of ["next-render", "simple-next-render"]) {

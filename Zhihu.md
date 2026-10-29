@@ -66,8 +66,8 @@
 | 广告对象与字段 | 去广告；递归删除已知广告类型及 `ad_info`、`ad_answers`、`ad_answer`、`adjson`、`ad_list` | 包分析、哲也、本机 | 自动测试、真实回放 |
 | 回答间广告 | 去广告；移除回答流 `data[]` 的 `type=ad` | 哲也、本机 | 真机确认；25 项样本保留 22 项 |
 | 首页推广 | 去广告；检查结构化 `promotion.is_card`、`commercial_promotion_rpc_extra`，移除 `plutus_card_*`、`brand_card_*` 子卡 | 包分析、本机 | 自动测试；13 项样本保留 10 项 |
-| 详情广告位 | 去广告；删 `third_business` 和所有 `type=card` 结构段 | 参考实现 | 字段开关测试；结构段为静态参考 |
-| 正文图片与大图 | 保留图片结构段、图片地址、原图地址与尺寸 | 本机 | 6 份真实响应的 21 个图片段完整保留；用户回测正常 |
+| 详情广告位 | 去广告；删 `third_business` 与带广告标记的 card 段（`card_type` 命中 ad/commercial/promotion，或段内含 `adjson`/`ad_zone_id` 等） | 参考实现、本机 | 自动测试；真实 `reward_tail_truncate` 卡片保留 |
+| 正文图片与大图 | 保留图片结构段、图片地址、原图地址与尺寸；`card` 段不再无条件删除 | 本机 | 真实响应回放；2026-10-29 修复想法（pin）详情图片被整段删掉的问题 |
 | 首页视频 | 净化；按视频类型及组件识别，保留普通图片和回答详情视频 | 哲也、用户需求 | 自动测试 |
 | 会员受限列表项 | 净化；购买状态、`purchase_required`、会员提示及 `KfeCollection-PurchaseBtn`；显式免费、已购优先保留 | 包分析、用户需求 | 自动测试 |
 | 课程、盐选小说商品卡 | 净化；外层 `knowledge_ad`，内层 `knowledge_vip` 或 `album_paid_column` / `paid_column_chapter` 商品类型 | 本机 | 真机确认；20 项真实响应移除 4 张商品卡 |

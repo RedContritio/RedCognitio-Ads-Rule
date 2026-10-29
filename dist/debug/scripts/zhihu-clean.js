@@ -41,6 +41,8 @@ function isVideo(item) {
     return types.some(type => "string" == typeof type && /^(?:video|zvideo|video_answer|video_collection|zvideo_collection|videocard|zvideocard|stylevideo)$/i.test(type));
 }
 
+const AD_CARD_TYPE = /(?:^|_)(?:ad|ads|advert|commercial|promotion)(?:_|$)/i, AD_CARD_MARKER = /"(?:ad_info|adjson|ad_list|third_business|ad_zone_id|creative_id|is_ad|isAd|advert)":/;
+
 function hasMembershipPrompt(node) {
     if ("string" == typeof node) {
         const text = node.replace(/<[^>]*>/g, "").replace(/\s+/g, "");
@@ -117,8 +119,11 @@ if (removeAds || purify) {
             state.removed++);
             if (removeAds && body && body.structured_content && Array.isArray(body.structured_content.segments)) {
                 const before = body.structured_content.segments.length;
-                body.structured_content.segments = body.structured_content.segments.filter(s => !s || "card" !== s.type),
-                state.removed += before - body.structured_content.segments.length;
+                body.structured_content.segments = body.structured_content.segments.filter(s => !s || "card" !== s.type || !function(segment) {
+                    if (!segment || "object" != typeof segment) return !1;
+                    const card = segment.card, cardType = card && (card.card_type || card.type || card.subtype);
+                    return !("string" != typeof cardType || !AD_CARD_TYPE.test(cardType)) || !("string" != typeof segment.subtype || !AD_CARD_TYPE.test(segment.subtype)) || AD_CARD_MARKER.test(JSON.stringify(segment));
+                }(s)), state.removed += before - body.structured_content.segments.length;
             }
         }
         if (purify && QUESTION_URL.test(url) && body && "object" == typeof body && delete body.roundtable_info,

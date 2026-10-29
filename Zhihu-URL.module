@@ -3,8 +3,8 @@
 #!category=广告拦截
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=1.1.1
-#!date=2026-10-25 · 1.1.1
+#!version=1.1.2
+#!date=2026-10-29 · 1.1.2
 #!loon_version=3.5.1(983)
 #
 # Copyright 2026 RedContritio
@@ -76,6 +76,6 @@ request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/zhstatic\.zhihu\.co
 # sugar.zhihu.com 兼作网络探活域（/check_health），故按路径拦而非整域
 
 [Script]
-response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-clean.js?v=1.1.1", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-clean.js?v=1.1.2", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
 [MITM]
 hostname = zhihu.com, *.zhihu.com
