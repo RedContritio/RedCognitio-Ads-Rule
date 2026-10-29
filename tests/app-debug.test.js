@@ -121,6 +121,7 @@ test("all distributions declare default-off flags and pass only the owning debug
   const modules = [
     ["Zhihu-URL.module", ["zhihu"]], ["Taobao-URL.module", ["taobao"]],
     ["NetEase-CloudMusic-URL.module", ["netease"]],
+    ["Pica-URL.module", ["pica"]],
     ["Zhihu-Dump.module", ["zhihu"]], ["Zhihu-Dump-ghproxy.module", ["zhihu"]],
   ];
   for (const [file, apps] of [...plugins.map(file => [file, ["zhihu", "taobao", "netease"]]), ...modules]) {
@@ -129,10 +130,13 @@ test("all distributions declare default-off flags and pass only the owning debug
       assert.equal(lines.filter(line => line.startsWith(`${app}_debug = switch,false,type=boolean,`)).length, 1, file);
     }
     for (const line of lines.filter(line => line.includes("then script("))) {
-      const app = line.includes("Taobao-ads-clean.js") ? "taobao" : line.includes("netease-debug.js") ? "netease" : "zhihu";
+      const app = line.includes("Taobao-ads-clean.js") ? "taobao"
+        : line.includes("netease-debug.js") ? "netease"
+        : line.includes("pica-clean.js") ? "pica"
+        : "zhihu";
       assert(line.includes('${' + app + '_debug}'), file);
       const args = line.match(/, \{(.*?)\}\) with/)[1];
-      for (const other of ["zhihu", "taobao", "netease"].filter(name => name !== app)) assert(!args.includes(other + "_debug"), file);
+      for (const other of ["zhihu", "taobao", "netease", "pica"].filter(name => name !== app)) assert(!args.includes(other + "_debug"), file);
       const version = file.endsWith(".plugin") ? "1.0." : lines.find(line => line.startsWith("#!version=")).slice(10);
       assert(line.includes("?v=" + version), file);
       if (app === "netease" || file.includes("Dump")) {

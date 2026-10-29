@@ -50,6 +50,7 @@ Debug 按 App 独立控制脚本日志。知乎、淘宝在对应净化脚本运
 | 淘宝 | `Taobao-URL.module` | [Taobao.md](Taobao.md) |
 | 网易云音乐 | `NetEase-CloudMusic-URL.module`、`NetEase-CloudMusic-Domain.module` | [NetEase-CloudMusic.md](NetEase-CloudMusic.md) |
 | 闲鱼 | `Xianyu-URL.module`、`Xianyu-Domain.module`、`Xianyu-Dump.module`（诊断） | [Xianyu.md](Xianyu.md) |
+| 哔咔漫画 | `Pica-URL.module`、`Pica-Domain.module` | [Pica.md](Pica.md) |
 
 ## 构建
 
