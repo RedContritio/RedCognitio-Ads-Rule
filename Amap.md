@@ -110,7 +110,7 @@ https://amap-aos-info-nogw.amap.com/ws/aos/alimama/splash_screen_rt?ent=2
 - 素材文件本身保留 7 天（`dc2.c()`：`lastModified > 604800000` 才删），但广告条目按 `end_time` 失效——开屏类素材一般是当日有效。
 - 频控参数全在云控 `splashscreen` 模块里（见 §8.1）：`max_req_count`（默认 10）、`min_req_interval_second`、`front_switching_time_minute`（默认 1440）。日志串是「不发送请求：请求次数已达上限 / 两次间隔太近 / 本地有当日妈妈数据」。
 
-**这条链路解释了为什么改响应比拦请求划算**：`Callback#onSuccess` 判定成功后的第一步就是 `remove("afp_splash_events")` + `dc2.m(null)`，也就是把池子和实时条目一起删掉。拦请求走的是失败分支，池子原封不动，旧广告会一直播到 `end_time`。
+**这条链路解释了为什么改响应比拦请求划算**：`Callback#onSuccess` 判定成功后的第一步就是 `remove("afp_splash_events")` + `dc2.m(null)`，也就是把池子和实时条目一起删掉。拦请求走的是失败分支，池子原封不动，旧广告会一直播到 `end_time`。2026-10-29 真机实测正是这个结果：装完首次启动就干净，没有"残留素材播到过期"的窗口（§5 第 4 步）。
 
 ## 4. 规则说明与取舍
 
@@ -153,7 +153,7 @@ response if ${amap_enable} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9-]+\.)*am
 
 1. Loon → 配置 → 插件，安装 `RedCognitio-Ads*.plugin`，确认「高德地图-去广告」为开。
 2. 确认 MitM 已开启、CA 已信任，`m5.amap.com` / `amap-aos-info-nogw.amap.com` 在 MitM 列表里（插件已带）。
-3. 核验真实主机名，两条路任选：
+3. 核验真实主机名（2026-10-29 实测已通过，以下保留为版本升级后的排查手段）：
    - **装 Debug 构建**，打开「高德地图-调试」，冷启动一次，Loon 日志里看 `AMDEBUG` 行（`AMDUMP-*` 是响应体）。
    - **Mac 侧代理**（能拿完整请求体与响应）：
 
@@ -168,7 +168,13 @@ response if ${amap_enable} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9-]+\.)*am
    - 出现别的主机（如 `aos.amap.com`）→ 补进 `[MITM]`，正则不用动；
    - 一条都抓不到 → 高德对 `m5` 做了证书固定（握手失败会在 `captures/passthrough.log` 记 `TLS` 错误），此时只剩链路 2 能拦。
 
-4. 连续冷启动 3~5 次验证：开屏应直接从第二次起消失。第一次可能还会播完已入池的素材——响应净化会在命中时清池，但如果第一次启动时广告已经播完，池子已经被清，后面就干净了。
+4. 实测（2026-10-29，Loon + iOS，合集 1.0.8）：装完首次启动即无开屏，**不需要先清缓存、不需要多次冷启动、也不需要事先核对主机名**。这一条同时验证了三个推断：
+   - iOS 端开屏确实走 `m5.amap.com/ws/valueadded/alimama/splash_screen`，与 Android 同主机，`[MITM]` 不用补；
+   - `code="7"` + 空 `data` 被客户端接受，`Callback#onSuccess` 的成功分支成立（不是被当成解析失败）；
+   - 清池动作（`remove("afp_splash_events")` + `dc2.m(null)`）在第一次命中时就执行完，所以不存在"已下发素材还要播到 `end_time`"的窗口——这正是响应净化相对 reject 请求的差别（§4.1）。
+
+   由此 `amap_debug` 的定位收窄为「高德大版本更新后复核链路」：主机名或字段结构变了，用它抓一次就能看出来。
+
 5. 回归：搜索、路线规划、导航、实时路况、打车、离线地图、登录、消息。
 
 ## 6. 会失效的功能（预期内）
