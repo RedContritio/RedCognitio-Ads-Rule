@@ -118,6 +118,8 @@ function boot(state = {}) {
     },
     requestAnimationFrame(callback) { raf.push(callback); },
   };
+  if (state.serviceWorker) window.navigator = { serviceWorker: state.serviceWorker };
+  if (state.caches) window.caches = state.caches;
 
   vm.runInNewContext(runtimeOf(inject(HOME, { pica_enable: true }).result.body), {
     window,
@@ -172,7 +174,7 @@ test("URL 模块拦 QUIC 并保留脚本与 MITM 配置", () => {
   assert(rules.some((line) => line.includes("PROTOCOL,QUIC") && line.includes("picacomic.com")));
   assert(rules.some((line) => line === "DOMAIN-SUFFIX,diwodiwo.xyz,REJECT,extended-matching,pre-matching"));
   assert(/\[MITM\][\s\S]*hostname = manhuabika\.com/.test(urlModule), "缺少 MITM hostname");
-  assert(/pica-clean\.js\?v=0\.1\.0/.test(urlModule), "脚本地址应带版本号");
+  assert(/pica-clean\.js\?v=0\.2\.0/.test(urlModule), "脚本地址应带版本号");
   assert(/requires_body=true/.test(urlModule), "注入需要响应体");
 });
 
@@ -202,6 +204,29 @@ test("注入规则只命中 SPA 页面，不命中静态资源与接口", () => 
 });
 
 // ───────────────────────── 注入 ─────────────────────────
+
+test("PicaWeb 的 Service Worker 注册地址被拒，静态资源与接口不受影响", () => {
+  for (const file of ["Pica-URL.module", "build/RedCognitio-Ads.plugin.tpl"]) {
+    const line = read(file).split("\n").find((text) => text.includes("sw\\.js"));
+    assert(line, `${file}: 缺少 SW 拒绝规则`);
+    const pattern = line.match(/~= \/(.*?)\/ then reject/)[1];
+    assert(!pattern.includes(",") || file.endsWith(".tpl"), `${file}: 正则内不得出现逗号`);
+    const expression = new RegExp(pattern);
+    assert.equal(expression.test("https://manhuabika.com/sw.js"), true, file);
+    assert.equal(expression.test("https://manhuabika.com/workbox-c9d5555e.js"), true, file);
+    assert.equal(expression.test("https://www.manhuabika.com/workbox-abc.js"), true, file);
+    assert.equal(expression.test("https://manhuabika.com/assets/js/index-ea_4Germ.js"), false, file);
+    assert.equal(expression.test("https://manhuabika.com/manifest.json"), false, file);
+  }
+});
+
+test("两个模块都带 pica-ad-api 关键字兜底，覆盖换域后的前缀写法", () => {
+  for (const file of ["Pica-URL.module", "Pica-Domain.module"]) {
+    assert(activeLines(read(file)).some(
+      (line) => line === "DOMAIN-KEYWORD,pica-ad-api,REJECT,extended-matching,pre-matching"
+    ), file);
+  }
+});
 
 test("首页 HTML 注入样式与运行时，且只注入一次", () => {
   const first = inject(HOME, { pica_enable: true });
@@ -329,6 +354,32 @@ test("任意十秒窗口内最多派发六次，防止阅读器拒绝翻页时�
   }
   const gaps = dom.events.slice(1).map((event, index) => event.at - dom.events[index].at);
   assert(gaps.every((gap) => gap >= 800), "相邻派发间隔不得小于冷却时间");
+});
+
+test("运行时注销 Service Worker 并清空 CacheStorage，防止缓存壳绕过注入", async () => {
+  const unregistered = [];
+  const deleted = [];
+  const dom = boot({
+    serviceWorker: {
+      controller: {},
+      register() { return Promise.resolve("should-not-happen"); },
+      getRegistrations() {
+        return Promise.resolve([
+          { unregister() { unregistered.push("a"); } },
+          { unregister() { unregistered.push("b"); } },
+        ]);
+      },
+    },
+    caches: {
+      keys() { return Promise.resolve(["workbox-precache", "images-cache"]); },
+      delete(key) { deleted.push(key); return Promise.resolve(true); },
+    },
+  });
+  // 注册被打成空实现：App 再调只会拿到 rejected promise，不会真的装回 SW
+  await assert.rejects(dom.window.navigator.serviceWorker.register(), /pica-ad-clean/);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(unregistered, ["a", "b"]);
+  assert.deepEqual(deleted, ["workbox-precache", "images-cache"]);
 });
 
 test("运行时重复执行不会挂第二套 MutationObserver", () => {

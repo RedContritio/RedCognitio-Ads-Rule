@@ -134,6 +134,25 @@ zone 常量只有 `zone_28`–`zone_35`、`zone_51`–`zone_54` 这 12 个，与
 
 **iOS 端只需要域名规则**：App 不解析 HTML，注入层对它既不生效也不产生副作用；`PicaAdWebView` 加载的落地页同样在 `diwodiwo.xyz` 下，一并被封。
 
+### 2.5 PicaWeb 是 PWA：注入先要拆 Service Worker
+
+`https://manhuabika.com/sw.js`（7647 字节，Workbox）实际内容：
+
+| 配置 | 原文 | 后果 |
+|---|---|---|
+| 预缓存 | `precacheAndRoute([{url:"index.html",revision:"ee7df9db…"}, …])` | 应用壳进 CacheStorage |
+| 导航拦截 | `NavigationRoute(createHandlerBoundToURL("/index.html"))`，denylist 只有 `/^\/_/`、`/\/[^/?]+\.[^/]+$/`、`/\/api\/.*/` | **所有页面导航都返回预缓存壳**，注入的 HTML 进不去 |
+| 图片 | `registerRoute(/\.(?:png\|jpg\|jpeg\|svg\|gif\|webp)$/i, CacheFirst("images-cache", maxAge 30 天))` | 广告创意 `/medias/*.gif` 命中，**30 天不回源** |
+| 同源接口 | `registerRoute(/\/api\/.*/i, NetworkFirst("api-cache", maxAge 300 s))` | 广告位 JSON 可能被缓存 5 分钟 |
+
+这正好解释「插件装了、广告一点没少」：域名规则拦得到网络，但页面来自缓存壳（注入没执行）、广告图来自 30 天 CacheFirst 缓存。
+
+对策三层：
+
+1. `[Rewrite]` 拒 `https://manhuabika.com/sw.js` 与 `workbox-*.js`，App 再也注册不回来；
+2. 注入运行时注销现有 SW、清空整个 CacheStorage、把 `navigator.serviceWorker.register` 打成 rejected；
+3. **一次性动作**：更新插件后要清一次站点缓存（删主屏图标从 Safari 重开，或 Safari → 设置 → 高级 → 网站数据 → 删 `manhuabika.com`），否则第一次导航仍由旧 SW 提供缓存壳。清过之后 1+2 保持现状。
+
 ## 3. 规则
 
 ### 3.1 域名层（两个模块都有）
@@ -142,7 +161,9 @@ zone 常量只有 `zone_28`–`zone_35`、`zone_51`–`zone_54` 这 12 个，与
 |---|---|
 | `DOMAIN-SUFFIX,diwodiwo.xyz,REJECT` | 广告服务器总域。下发、跳转、素材、H5 广告页都在它和它的子域（`pica-ad-api` / `pica-a-display`）下。iOS 原生端若真机出现空占位，按 §6 换成 `REJECT-DICT` |
 | `DOMAIN,pica-juicy.picacomic.com,REJECT` | 旧版 Android 的 H5 广告位宿主，2026-10-29 实测已不响应；服务端由 `/api/v1/init` 的 `waka` 字段下发新地址，保留此条防回切 |
+| `DOMAIN-KEYWORD,pica-ad-api,REJECT` | iOS 端把广告域写成前缀 `https://pica-ad-api.<domain>`，换域时这条兜底 |
 | `AND,((DOMAIN-SUFFIX,manhuabika.com),(PROTOCOL,QUIC)),REJECT`<br>`AND,((DOMAIN-SUFFIX,picacomic.com),(PROTOCOL,QUIC)),REJECT` | 只有 `Pica-URL.module` 需要：Cloudflare 对 h3 有 Alt-Svc，走 QUIC 就 MITM 不到，注入静默失效 |
+| `request … /manhuabika\.com\/(?:sw\.js|workbox-[^/?#]+\.js)/ then reject(404)` | 只有 `Pica-URL.module` 需要：见 §2.5，SW 会把导航喂成缓存壳 |
 
 **不封 API 域**：`Me("picaapi")` 拼出的是 `https://picaapi.<当前 API 域名>`，域名会换（`go2778.com`、`acbbb.com` 是图片 CDN），封任何一个都会连坐登录与图片。广告域不跟着轮换，只封它。
 
@@ -193,6 +214,7 @@ zone 常量只有 `zone_28`–`zone_35`、`zone_51`–`zone_54` 这 12 个，与
 | 「支持嗶咔」入口点开是空白/报错页 | 落地页在 `diwodiwo.xyz` 下，被域名规则拦了 | 预期内；这个入口本身就是广告 |
 | 阅读器偶尔仍停一张黑页 | 键盘事件没生效且 `.page-nav-button.nav-right` 当时不可用（首尾页） | 滑一下即可；黑页不含任何可点内容 |
 | 广告位消失后首页横幅区变窄 | 容器被 `display:none`，不占位 | 预期内，比留白更好 |
+| PicaWeb 失去离线可用性 | SW 被拆，断网时不再有预缓存壳 | 换来注入长期生效；需要离线时把 `pica_enable` 关掉再访问一次即可重新安装 SW |
 | 广告服务器换域后规则失效 | 广告域目前与 API 域解耦，但换域是随时可能的 | 换域时只需改 `DOMAIN-SUFFIX`，注入层不用动 |
 | iOS 端出现广告位空占位或首屏变慢 | `REJECT` 让请求直接失败，Flutter 侧可能停在「加载中」而不是「无数据」 | 把域名规则改成 `REJECT-DICT`（回 200 空体）：`DOMAIN-SUFFIX,diwodiwo.xyz,REJECT-DICT,extended-matching,pre-matching`，App 会走 `code == null` → 无广告分支 |
 
@@ -203,8 +225,15 @@ zone 常量只有 `zone_28`–`zone_35`、`zone_51`–`zone_54` 这 12 个，与
    - `Pica-URL.module`（单模块，需 MITM + 信任 Loon CA）
    - `Pica-Domain.module`（不装 CA 也能用，阅读器留黑页）
 2. URL 模块确认 MITM 已开，hostname 里有 `manhuabika.com`。
-3. 打开 PicaWeb，清一次站点数据（或等 5 分钟缓存过期），确认首页横幅、详情页广告条消失。
+3. **清一次站点数据**（Safari → 设置 → 高级 → 网站数据 → 删 `manhuabika.com`，或删掉主屏图标重开一次）：PicaWeb 的 Service Worker 会把旧壳和广告图缓存住，不清这一次，插件装了也看不到任何变化。
 4. 任选一本 ≥21 页的漫画，翻到第 21 页，应自动跳到第 22 页。
+
+装好后先做两个决定性自测（手机 Safari，不经过 App）：
+
+| 自测 | 期望 | 说明 |
+|---|---|---|
+| `https://pica-ad-api.diwodiwo.xyz/get-ad-zones?z=zone_8` | 连接失败 / 空响应 | 能返回 `{"code":200,...}` 说明规则没生效：插件没更新到 1.0.4、开关关了，或流量没走 Loon |
+| `https://manhuabika.com/sw.js` | 404 | 说明 SW 已被拦；还能拿到脚本就是旧插件 |
 
 抓包复核用自己的工具链，见仓库外 `tools/MITM.md`：`bash tools/start_mitm.sh pica`。
 
@@ -212,14 +241,15 @@ zone 常量只有 `zone_28`–`zone_35`、`zone_51`–`zone_54` 这 12 个，与
 
 ### 8.1 已做的本地验证（2026-10-29）
 
-`npm test`（`tests/pica.test.js`，15 项）覆盖：
+`npm test`（`tests/pica.test.js`，18 项）覆盖：
 
 - 域名模块只封 `diwodiwo.xyz` 与 `pica-juicy`，不含任何业务域；
 - 注入规则正则：`/`、`/pdownload`、`/comic/…`、`/comic/reader/…` 命中；`assets/js/*.js`、`*.css`、`*.json`、`*.png`、`manifest.json`、`picaapi.*`、`pica-ad-api.*` 不命中；
 - 注入只插一次（重复执行原样放行）、无 `</head>` 时退到 `<body>`；
 - 样式覆盖 12 个广告容器 class；
 - 非 HTML、无 `PicaWeb` 标记、开关关闭时都不改响应；
-- 运行时：广告域 fetch 被短路成空池且不发原生请求、其他域透传；广告页派发 `ArrowRight`；键盘无效时点 `.page-nav-button.nav-right`；双页模式点 `.dual-ad-nav-btn--next`；同页 ≤3 次、相邻 ≥800 ms、任意 10 s 窗口 ≤6 次；重复执行不挂第二套 `MutationObserver`。
+- 拒 `sw.js` / `workbox-*.js`，不误伤 assets 与 manifest；两个模块都带 `pica-ad-api` 关键字兜底；
+- 运行时：注销 SW、清空 CacheStorage、`register` 被打成 rejected；广告域 fetch 被短路成空池且不发原生请求、其他域透传；广告页派发 `ArrowRight`；键盘无效时点 `.page-nav-button.nav-right`；双页模式点 `.dual-ad-nav-btn--next`；同页 ≤3 次、相邻 ≥800 ms、任意 10 s 窗口 ≤6 次；重复执行不挂第二套 `MutationObserver`。
 
 另有 jsdom 冒烟（不进仓库，脚本临时写的）：把注入后的整页跑在真实 DOM 里，模拟 SPA 的 `document` 键盘监听 → 渲染 `.reader-ad-fullpage` 后 200 ms 内页面从 20 翻到 21、广告节点消失；`getComputedStyle(.comic-detail-ad-mobile-container).display === "none"`，普通块仍为 `block`；`window.fetch("https://pica-ad-api.diwodiwo.xyz/get-ad-zones?…")` 返回 `{"code":200,"data":{"zones":[]}}` 且未触达原生 fetch。
 

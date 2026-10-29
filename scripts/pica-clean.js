@@ -63,6 +63,26 @@ const RUNTIME = `(function () {
       return nativeFetch.apply(this, arguments);
     };
   }
+  // PicaWeb 是 PWA：sw.js（Workbox）用 NavigationRoute + createHandlerBoundToURL("/index.html")
+  // 把所有导航都喂成预缓存的壳，注入根本进不到页面；广告创意又按 CacheFirst 存 30 天
+  // （/medias/*.gif 命中 /\.(png|jpg|gif...)$/ 那条路由），域名封了照样从缓存里显示。
+  // 这里注销 SW、清空 CacheStorage，并把 register 打成空实现，防止 App 再装回去。
+  try {
+    var swc = window.navigator && window.navigator.serviceWorker;
+    if (swc) {
+      try { swc.register = function () { return Promise.reject(new Error("pica-ad-clean")); }; } catch (e) {}
+      if (typeof swc.getRegistrations === "function") {
+        swc.getRegistrations().then(function (list) {
+          for (var i = 0; i < list.length; i += 1) { try { list[i].unregister(); } catch (e) {} }
+        }).catch(function () {});
+      }
+    }
+    if (window.caches && typeof window.caches.keys === "function") {
+      window.caches.keys().then(function (keys) {
+        for (var i = 0; i < keys.length; i += 1) { try { window.caches.delete(keys[i]); } catch (e) {} }
+      }).catch(function () {});
+    }
+  } catch (e) {}
   var node = null;
   var attempts = 0;
   var lastAt = 0;

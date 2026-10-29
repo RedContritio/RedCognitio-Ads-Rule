@@ -3,8 +3,8 @@
 #!category=广告拦截
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=0.1.0
-#!date=2026-10-29 · 0.1.0
+#!version=0.2.0
+#!date=2026-10-29 · 0.2.0
 #!loon_version=3.5.1(983)
 #
 # Copyright 2026 RedContritio
@@ -20,3 +20,6 @@ DOMAIN-SUFFIX,diwodiwo.xyz,REJECT,extended-matching,pre-matching
 
 # 旧版 Android 客户端的 H5 广告位宿主（pica-juicy），由 init 的 waka 字段下发
 DOMAIN,pica-juicy.picacomic.com,REJECT,extended-matching,pre-matching
+
+# iOS 端把广告域写成前缀形式 https://pica-ad-api.<domain>，换域时这条兜底
+DOMAIN-KEYWORD,pica-ad-api,REJECT,extended-matching,pre-matching

@@ -1,9 +1,9 @@
 #!name=RedCognitio 去广告合集（Debug）
-#!desc=知乎 / 淘宝 / 网易云音乐 / 哔咔，按应用开关；Debug · 1.0.3；需 MITM，Loon 3.5.1+
+#!desc=知乎 / 淘宝 / 网易云音乐 / 哔咔，按应用开关；Debug · 1.0.4；需 MITM，Loon 3.5.1+
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=1.0.3
-#!date=2026-10-29 · 1.0.3
+#!version=1.0.4
+#!date=2026-10-29 · 1.0.4
 #!loon_version=3.5.1(983)
 #!category=广告拦截
 #!type=normal
@@ -114,6 +114,9 @@ DOMAIN-SUFFIX,diwodiwo.xyz,REJECT,extended-matching,pre-matching
 # 旧版 Android 客户端的 H5 广告位宿主，2026-10-29 实测已不响应，保留防回切
 DOMAIN,pica-juicy.picacomic.com,REJECT,extended-matching,pre-matching
 
+# 兜底：iOS 端把广告域写成前缀形式 https://pica-ad-api.<domain>
+DOMAIN-KEYWORD,pica-ad-api,REJECT,extended-matching,pre-matching
+
 [Rewrite]
 # 淘宝：TopShow 顶展、poplayer 配置、HEIC 开屏兜底（原先的 URL-REGEX 规则，改为按开关生效）
 request if ${taobao_enable} == true && ${url} ~= /\/mtop\.alimama\.topshow\.query/ then reject(404)
@@ -180,21 +183,24 @@ response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhi
 # request if ${zhihu_enable} == true && ${url} ~= /^https:\/\/page-info\.zhihu\.com\/(answers|articles)\/v2\//i then reject_dict(200)
 
 [Script]
-request if ${netease_debug} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\//i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/netease-debug.js?v=1.0.3", {${netease_debug}}) with tag="网易云音乐调试"
+request if ${netease_debug} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\//i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/netease-debug.js?v=1.0.4", {${netease_debug}}) with tag="网易云音乐调试"
 
 # 开屏图片与视频
-response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.3", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
+response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.4", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
 
 # 开屏活动（poplayer 远程模板）
-response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.3", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
+response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.4", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
 
 # 不拦：首页主数据 / 推荐流 / newface 首页 / 商品详情 / 购物车 / 订单 / 搜索 /
 #       mtop 网关 / 会场 H5 / gw.alicdn.com 商品图 / dinamicx 弹窗模板
 
 
-# 哔咔：PicaWeb 页面注入（路径无扩展名才可能是 SPA 的 HTML，assets 与接口不进脚本）
-response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/pica-clean.js?v=1.0.3", {${pica_enable}, ${pica_debug}}) with tag="哔咔去广告注入", requires_body=true
+# 哔咔：PicaWeb 的 Service Worker 会把导航喂成预缓存壳，注入进不去，先拒掉注册地址
+request if ${pica_enable} == true && ${url} ~= /^https:\/\/(?:www\.)?manhuabika\.com\/(?:sw\.js|workbox-[^\/?#]+\.js)/ then reject(404)
 
-response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/zhihu-clean.js?v=1.0.3", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
+# 哔咔：PicaWeb 页面注入（路径无扩展名才可能是 SPA 的 HTML，assets 与接口不进脚本）
+response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/pica-clean.js?v=1.0.4", {${pica_enable}, ${pica_debug}}) with tag="哔咔去广告注入", requires_body=true
+
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/zhihu-clean.js?v=1.0.4", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
 [MITM]
 hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com

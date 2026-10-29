@@ -3,8 +3,8 @@
 #!category=广告拦截
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=0.1.0
-#!date=2026-10-29 · 0.1.0
+#!version=0.2.0
+#!date=2026-10-29 · 0.2.0
 #!loon_version=3.5.1(983)
 #
 # Copyright 2026 RedContritio
@@ -35,10 +35,19 @@ DOMAIN-SUFFIX,diwodiwo.xyz,REJECT,extended-matching,pre-matching
 # 服务端由 /api/v1/init 的 waka 字段下发新地址，保留此条防回切。
 DOMAIN,pica-juicy.picacomic.com,REJECT,extended-matching,pre-matching
 
+# 兜底：iOS 端把广告域写成前缀形式 https://pica-ad-api.<domain>，
+# 换域时下面这条仍能命中（当前实测就是 pica-ad-api.diwodiwo.xyz）
+DOMAIN-KEYWORD,pica-ad-api,REJECT,extended-matching,pre-matching
+
+[Rewrite]
+# PicaWeb 是 PWA：sw.js（Workbox）把所有导航都喂成预缓存的 index.html，注入进不到页面；
+# 广告 gif 又按 CacheFirst 存 30 天。脚本里会注销 SW 并清缓存，这里再拒一次注册地址。
+request if ${pica_enable} == true && ${url} ~= /^https:\/\/(?:www\.)?manhuabika\.com\/(?:sw\.js|workbox-[^\/?#]+\.js)/ then reject(404)
+
 [Script]
 # 只对「不像静态资源」的页面请求注入：路径里没有扩展名才可能是 SPA 的 HTML。
 # 接口、locale JSON、assets 下的 js/css/图片都不进脚本，免得白拉响应体。
-response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/pica-clean.js?v=0.1.0", {${pica_enable}, ${pica_debug}}) with tag="哔咔去广告注入", requires_body=true
+response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/pica-clean.js?v=0.2.0", {${pica_enable}, ${pica_debug}}) with tag="哔咔去广告注入", requires_body=true
 
 [MITM]
 hostname = manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com

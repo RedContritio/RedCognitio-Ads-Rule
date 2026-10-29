@@ -114,6 +114,9 @@ DOMAIN-SUFFIX,diwodiwo.xyz,REJECT,extended-matching,pre-matching
 # 旧版 Android 客户端的 H5 广告位宿主，2026-10-29 实测已不响应，保留防回切
 DOMAIN,pica-juicy.picacomic.com,REJECT,extended-matching,pre-matching
 
+# 兜底：iOS 端把广告域写成前缀形式 https://pica-ad-api.<domain>
+DOMAIN-KEYWORD,pica-ad-api,REJECT,extended-matching,pre-matching
+
 [Rewrite]
 # 淘宝：TopShow 顶展、poplayer 配置、HEIC 开屏兜底（原先的 URL-REGEX 规则，改为按开关生效）
 request if ${taobao_enable} == true && ${url} ~= /\/mtop\.alimama\.topshow\.query/ then reject(404)
@@ -191,6 +194,9 @@ response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i 
 # 不拦：首页主数据 / 推荐流 / newface 首页 / 商品详情 / 购物车 / 订单 / 搜索 /
 #       mtop 网关 / 会场 H5 / gw.alicdn.com 商品图 / dinamicx 弹窗模板
 
+
+# 哔咔：PicaWeb 的 Service Worker 会把导航喂成预缓存壳，注入进不去，先拒掉注册地址
+request if ${pica_enable} == true && ${url} ~= /^https:\/\/(?:www\.)?manhuabika\.com\/(?:sw\.js|workbox-[^\/?#]+\.js)/ then reject(404)
 
 # 哔咔：PicaWeb 页面注入（路径无扩展名才可能是 SPA 的 HTML，assets 与接口不进脚本）
 response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("{{scripts}}/pica-clean.js?v={{version}}", {${pica_enable}, ${pica_debug}}) with tag="哔咔去广告注入", requires_body=true
