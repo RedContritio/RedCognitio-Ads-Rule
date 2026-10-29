@@ -220,6 +220,17 @@ test("PicaWeb 的 Service Worker 注册地址被拒，静态资源与接口不�
   }
 });
 
+test("SW 拒绝规则必须落在 [Rewrite] 段，写进 [Script] 段会被 Loon 当成脚本规则", () => {
+  for (const file of ["Pica-URL.module", "build/RedCognitio-Ads.plugin.tpl", "RedCognitio-Ads.plugin"]) {
+    const lines = read(file).split("\n");
+    const rewrite = lines.findIndex((line) => line.trim() === "[Rewrite]");
+    const script = lines.findIndex((line) => line.trim() === "[Script]");
+    const rule = lines.findIndex((line) => line.startsWith("request ") && line.includes("sw\\.js"));
+    assert(rewrite >= 0 && script > rewrite, `${file}: 段结构异常`);
+    assert(rule > rewrite && rule < script, `${file}: SW 拒绝规则不在 [Rewrite] 段`);
+  }
+});
+
 test("两个模块都带 pica-ad-api 关键字兜底，覆盖换域后的前缀写法", () => {
   for (const file of ["Pica-URL.module", "Pica-Domain.module"]) {
     assert(activeLines(read(file)).some(

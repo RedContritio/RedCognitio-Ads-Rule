@@ -182,6 +182,9 @@ response if ${zhihu_purify} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhi
 # 开启后若回答页空白/无法加载，立即注释回去；能正常看回答但底部广告消失就保留。
 # request if ${zhihu_enable} == true && ${url} ~= /^https:\/\/page-info\.zhihu\.com\/(answers|articles)\/v2\//i then reject_dict(200)
 
+# 哔咔：PicaWeb 的 Service Worker 会把导航喂成预缓存壳，注入进不去，先拒掉注册地址
+request if ${pica_enable} == true && ${url} ~= /^https:\/\/(?:www\.)?manhuabika\.com\/(?:sw\.js|workbox-[^\/?#]+\.js)/ then reject(404)
+
 [Script]
 request if ${netease_debug} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\//i then script("{{scripts}}/netease-debug.js?v={{version}}", {${netease_debug}}) with tag="网易云音乐调试"
 
@@ -194,9 +197,6 @@ response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i 
 # 不拦：首页主数据 / 推荐流 / newface 首页 / 商品详情 / 购物车 / 订单 / 搜索 /
 #       mtop 网关 / 会场 H5 / gw.alicdn.com 商品图 / dinamicx 弹窗模板
 
-
-# 哔咔：PicaWeb 的 Service Worker 会把导航喂成预缓存壳，注入进不去，先拒掉注册地址
-request if ${pica_enable} == true && ${url} ~= /^https:\/\/(?:www\.)?manhuabika\.com\/(?:sw\.js|workbox-[^\/?#]+\.js)/ then reject(404)
 
 # 哔咔：PicaWeb 页面注入（路径无扩展名才可能是 SPA 的 HTML，assets 与接口不进脚本）
 response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("{{scripts}}/pica-clean.js?v={{version}}", {${pica_enable}, ${pica_debug}}) with tag="哔咔去广告注入", requires_body=true
