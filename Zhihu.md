@@ -27,7 +27,7 @@
 | 包分析 | Android 11.5.0 的接口、模型、域名及广告模板 |
 | 参考实现 | 可莉 / RuCu6 历史规则 |
 | 哲也 | [blackmatrix7 AllInOne](https://github.com/blackmatrix7/ios_rule_script/blob/master/rewrite/Surge/AllInOne/AllInOne.sgmodule) 引用的[脚本](https://gist.githubusercontent.com/blackmatrix7/f5f780d0f56b319b6ad9848fd080bb18/raw/zheye.min.js)，提供回答流与视频识别参考 |
-| 本机 | 2026-10-23 至 24 日 iOS 抓包、Loon 日志与响应回放；25 日用户真机回测 |
+| 本机 | 2026-10-23 至 24 日 iOS 抓包、Loon 日志与响应回放；25 日、29 日用户真机回测 |
 
 验证状态：**真机确认**＝用户确认页面效果；**真实回放**＝使用抓到的响应核对结果；**自动测试**＝合成样本与配置断言；**静态参考**＝包分析或历史规则核对。
 
@@ -89,6 +89,15 @@
 
 `api.zhihu.com`、图片 CDN、`sugar.zhihu.com` 与 `open.kuaishouzt.com` 保留业务访问，广告按路径处理。
 
+## 近期修复
+
+| 日期 | 版本 | 问题 | 处理 |
+|---|---|---|---|
+| 2026-10-25 | 1.1.1 | 裸 IP 预取脚本把 `http://<IP>/` 探测回成 `{}`，图片 CDN 被判不可用，正文图不显示 | 删除 `zhihu-ad-preload.js` 与该路由，裸 IP 探测恢复直通 |
+| 2026-10-29 | 1.1.2 / 插件 1.0.2 | 详情页按 `type=card` 一刀切删结构段，想法（pin）与回答正文的图文卡片连同图片一起被删 | 改为只删带广告标记的 card 段：`card_type` 命中 ad/ads/advert/commercial/promotion，或段内含 `adjson`、`ad_info`、`ad_zone_id`、`creative_id` 等 |
+
+两次都属于「去广告规则误伤正文」，判定标准已经收窄为：**标记为广告才删，其余一律保留**。想法详情的图片若挂在非 card 段，仍需用 `Zhihu-Dump.module` 抓 `pins/v2/{id}` 响应再定位。
+
 ## 修改与验证
 
 ```sh
@@ -98,6 +107,7 @@ git diff --check
 ```
 
 - 自动测试覆盖规则、调试开关、两种构建的过滤结果及构建一致性；真实响应回放核对正文、图片、相邻条目与分页，真机确认页面效果。
+- 改动详情页结构段相关逻辑时，必须回归三类页面：回答详情、文章（`articles`）、想法（`pins/v2/{id}?single_content=1`）。想法是最近两次图片误伤的唯一暴露面。
 - 修改模板与源码后运行 `npm run build`；版本号第三位递增，脚本 URL 使用完整版本号刷新。独立路径模块按对应规则同步维护。
 - 开启调试后，`ZHCLEAN` 记录过滤计数，`removed` 合计字段和条目删除；`ZHSEARCH-META` / `ZHSEARCH-BODY` 记录完整搜索响应及请求 URL，按 `id`、`part` 拼接，每段 1200 字符。
 - 原始日志、抓包与证书留在本机。独立 `Zhihu-Dump*.module` 的知乎-调试默认关闭，开启后以 `ZHDUMP-*` 记录详情请求与完整响应；启用前检查其中的 Host 映射。
