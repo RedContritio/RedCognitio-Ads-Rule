@@ -1,9 +1,9 @@
 #!name=RedCognitio 去广告合集
-#!desc=知乎 / 淘宝 / 网易云音乐 / 哔咔 / 高德，按应用开关；Release · 1.0.8；需 MITM，Loon 3.5.1+
+#!desc=知乎 / 淘宝 / 网易云音乐 / 哔咔 / 高德 / missav / JAV 站族 / 多邻国，按应用开关；Release · 1.0.12；需 MITM，Loon 3.5.1+
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=1.0.8
-#!date=2026-10-29 · 1.0.8
+#!version=1.0.12
+#!date=2026-10-30 · 1.0.12
 #!loon_version=3.5.1(983)
 #!category=广告拦截
 #!type=normal
@@ -18,6 +18,9 @@ taobao_enable = switch,true,type=boolean,tag=淘宝-去广告,desc=关闭后停�
 netease_enable = switch,true,type=boolean,tag=网易云音乐-去广告,desc=关闭后停止网易云广告接口拦截
 pica_enable = switch,true,type=boolean,tag=哔咔-去广告,desc=PicaWeb 注入去广告样式并自动翻过阅读器广告页；iOS 原生客户端由域名规则覆盖
 amap_enable = switch,true,type=boolean,tag=高德地图-去广告,desc=改写开屏两条接口的响应并清空本地素材池；关闭后开屏恢复
+missav_enable = switch,true,type=boolean,tag=missav-去广告,desc=拆掉 smartpop/popunder 弹窗、页面广告位与联盟推广位；关闭后恢复
+jav_enable = switch,true,type=boolean,tag=JAV 站族-去广告,desc=删掉 18AV / 123AV / JavBus 这类站的第三方广告 iframe、广告 SDK 与广告位占位
+duolingo_enable = switch,false,type=boolean,tag=多邻国-去广告,desc=改写用户数据的订阅档位，插屏（含 Super 推广）不再下发；涉及账号状态，默认关闭，先用小号验证
 
 # 说明：DOMAIN 级广告域规则不带开关，只封广告域，不会影响 App 正常功能。
 # 需要完全关闭某个 App 时，直接把对应开关关掉即可；广告域本身不会造成业务影响。
@@ -126,7 +129,76 @@ AND,((DOMAIN,amap-aos-info-nogw.amap.com),(PROTOCOL,QUIC)),REJECT
 # 素材 CDN（gw.alicdn.com / aoscdn.amap.com / aos-cdn-image.amap.com）与地图皮肤、
 # POI 图共用，不拦；开屏素材 URL 还是接口动态下发的，域名级封不到。
 
+# ══ missav（missav.ws / missav123.com / missav.ai / missav.live，2026-10-30 取证）══
+# 站点是 Cloudflare + Laravel 服务端渲染，广告没有「广告位接口」：
+#   1. 服务端直出 smartpop iframe（go.mayzaent.com/smartpop/<64 hex>），302 → creative.greentrafsa.com
+#      的 lib-auto.js，自己继续 window.open，首页 12 秒实测 6 个新标签；
+#   2. 页面尾部内联 htmlAds 脚本，每次随机挑 1 条（Stripchat Spot 悬浮 / 右下 300×100 / smartpop）；
+#   3. 播放器容器 @click="pop()"，window.open('/pop?url=…') 新开标签，广告池 17 条、24 小时轮换。
+# 所以域名层只做兜底：白标广告网络的注册域固定、子域（creative. / t. / go.）轮换，按注册域封。
+DOMAIN-SUFFIX,myavlive.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,mavrtracktor.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,greentrafsa.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,mayzaent.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,rallytrck.website,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,snaptrckr.fun,REJECT,extended-matching,pre-matching
+# pop() 广告池里的 TrafficStars 直链与 adraw 广告位
+DOMAIN-SUFFIX,tsyndicate.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,twinrdengine.com,REJECT,extended-matching,pre-matching
+# pop() 广告池里的跳转型落地（diffusedpassionquaking.com/1919723/）
+DOMAIN-SUFFIX,diffusedpassionquaking.com,REJECT,extended-matching,pre-matching
+
+# QUIC 无法 MITM；站点响应头带 alt-svc h3，Safari 用上 h3 后注入与本文件的 /pop 拦截都会静默失效
+AND,((DOMAIN-SUFFIX,missav123.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,missav.ws),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,missav.ai),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,missav.live),(PROTOCOL,QUIC)),REJECT
+
+# 不拦：fourhoi.com 封面图 CDN、cdnjs.cloudflare.com（plyr / hls.js）、client-rapi-missav.recombee.com
+# 推荐接口。bit.ly 是联盟推广位用的短链，整域封会影响其它场景，改在注入层从 HTML 里删 <a>。
+# GTM（GTM-P32NTRH6）只做统计，默认保留；要断统计时取消下面一行：
+# DOMAIN,www.googletagmanager.com,REJECT,extended-matching,pre-matching
+
+# ══ JAV 站族：按广告网络覆盖，不按站点（2026-10-30 取证）══
+# 这批站没有共享模板，共享的是广告网络。判据取广告网络自己的特征：
+#   ExoClick   18av 服务端直出 <iframe src='//a.magsrv.com/iframe.php?idzone=…'>；
+#              123av/njav 走 <script src="a.magsrv.com/ad-provider.js"> + <ins data-zoneid> + 内联 popMagic
+#   JuicyAds   javbus 的 poweredby.jads.co / i.jads.co
+# 所以域名层封网络、注入层删容器，一个站只需在名单里加一个域名。
+DOMAIN-SUFFIX,exoclick.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,exosrv.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,magsrv.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,pemsrv.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,realsrv.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,jads.co,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,jads.cc,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,juicyads.com,REJECT,extended-matching,pre-matching
+# JavBus / 部分站的 TrafficStars 与 TrafficJunky 位
+DOMAIN-SUFFIX,trafficjunky.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,trafficjunky.net,REJECT,extended-matching,pre-matching
+
+# QUIC 无法 MITM；这些站多在 Cloudflare 后且带 alt-svc h3
+AND,((DOMAIN-SUFFIX,18av.mm-cg.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,njav.tv),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,123av.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,javdb.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,javbus.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,jav321.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,javgg.net),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,supjav.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN-SUFFIX,javlibrary.com),(PROTOCOL,QUIC)),REJECT
+
+# 不拦：各站自家素材域（c0.jdbstatic.com、javcode.net、bkcdn.net、eemmhh01.com 等），
+# 以及 javdb 的 Yandex Metrica。JAVGG / JavDB / JAV321 首页实测没有第三方广告，
+# 名单里保留它们只是为了注入层不误判，规则本身对它们无副作用。
+
 [Rewrite]
+# ══ missav：popunder 中转页 ══
+# 播放器上的 pop() 会 window.open('/pop?url=<广告落地>')，这个中转页只服务弹窗。
+# 与下面注入层里摘 @click="pop()" 必须同批上线：只封 /pop 会出现「点一下开空白标签，
+# 回来还要再点一次播放」，因为 pop() 的定时器只在弹窗被关掉后才替你 player.play()。
+request if ${missav_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*(?:missav123\.com|missav\.(?:ws|ai|live))\/pop\?url=/i then reject(404)
+
 # 淘宝：TopShow 顶展、poplayer 配置、HEIC 开屏兜底（原先的 URL-REGEX 规则，改为按开关生效）
 request if ${taobao_enable} == true && ${url} ~= /\/mtop\.alimama\.topshow\.query/ then reject(404)
 request if ${taobao_enable} == true && ${url} ~= /\/mtop\.alimama\.topshow\.interact/ then reject(404)
@@ -225,22 +297,36 @@ response if ${amap_enable} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9-]+\.)*am
 [Script]
 
 # 开屏图片与视频
-response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/release/scripts/Taobao-ads-clean.js?v=1.0.8") with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
+response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/release/scripts/Taobao-ads-clean.js?v=1.0.12") with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
 
 # 开屏活动（poplayer 远程模板）
-response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/release/scripts/Taobao-ads-clean.js?v=1.0.8") with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
+response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/release/scripts/Taobao-ads-clean.js?v=1.0.12") with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
 
 # 不拦：首页主数据 / 推荐流 / newface 首页 / 商品详情 / 购物车 / 订单 / 搜索 /
 #       mtop 网关 / 会场 H5 / gw.alicdn.com 商品图 / dinamicx 弹窗模板
 
 
 # 哔咔：PicaWeb 页面注入（路径无扩展名才可能是 SPA 的 HTML，assets 与接口不进脚本）
-response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/release/scripts/pica-clean.js?v=1.0.8", {${pica_enable}}) with tag="哔咔去广告注入", requires_body=true
+response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/release/scripts/pica-clean.js?v=1.0.12", {${pica_enable}}) with tag="哔咔去广告注入", requires_body=true
 
-response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/release/scripts/zhihu-clean.js?v=1.0.8", {${zhihu_enable}, ${zhihu_purify}}) with tag="知乎内容净化", requires_body=true
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/release/scripts/zhihu-clean.js?v=1.0.12", {${zhihu_enable}, ${zhihu_purify}}) with tag="知乎内容净化", requires_body=true
+
+# missav：页面注入。路径无扩展名才可能是文档，assets / fonts / 视频分片不进脚本
+response if ${missav_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*(?:missav123\.com|missav\.(?:ws|ai|live))\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/release/scripts/missav-clean.js?v=1.0.12", {${missav_enable}}) with tag="missav 去广告注入", requires_body=true
+
+# JAV 站族：同一套判据铺一批站；新增站点只加域名，判据不用改
+response if ${jav_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*(?:18av\.mm-cg\.com|njav\.tv|123av\.com|javdb\.com|javbus\.com|jav321\.com|javgg\.net|supjav\.com|javlibrary\.com|avmoo\.com|tellme\.pw)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/release/scripts/jav-clean.js?v=1.0.12", {${jav_enable}}) with tag="JAV 站族去广告注入", requires_body=true
+# 多邻国：插屏放不放由**账号档位**决定，不是广告接口，所以改写点是首方用户数据。
+# 命中面只有 2023-05-23 的 batch（批量包裹：responses[] 内 body 可能是字符串也可能是对象，
+# 且带 etag 的那条必须原样放行，否则条件请求会污染缓存）与 users/{id}（裸 userdata）。
+# 只改三处：shopItems 补 gold_subscription、subscriberLevel 置 GOLD、trackingProperties.has_item_*_subscription 全开。
+response if ${duolingo_enable} == true && ${url} ~= /^https?:\/\/(?:ios-api-[a-z0-9-]+|api\d+)\.duolingo\.c(?:n|om)\/2023-05-23\/(?:batch|users\/[^\/?#]+)(?:[?#]|$)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/release/scripts/duolingo-clean.js?v=1.0.12", {${duolingo_enable}}) with tag="多邻国去广告", requires_body=true
+
+# 判据诊断（Debug）：上面改完仍出插屏，说明判据不在资格层。本行只把候选**键名**打到日志，不落值。
+
 
 # 高德：开屏接口诊断。iOS 取不到可解密样本，开屏到底走哪台 AOS 主机只能靠抓一次启动回答；
 # 日志里 AMDEBUG 行的主机名决定 [MITM] 要不要补，AMDUMP-* 是响应体。
 
 [MITM]
-hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com, m5.amap.com, amap-aos-info-nogw.amap.com
+hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com, m5.amap.com, amap-aos-info-nogw.amap.com, missav.ws, *.missav.ws, missav123.com, *.missav123.com, missav.ai, *.missav.ai, missav.live, *.missav.live, 18av.mm-cg.com, *.18av.mm-cg.com, njav.tv, *.njav.tv, 123av.com, *.123av.com, javdb.com, *.javdb.com, javbus.com, *.javbus.com, jav321.com, *.jav321.com, javgg.net, *.javgg.net, supjav.com, *.supjav.com, javlibrary.com, *.javlibrary.com, avmoo.com, *.avmoo.com, tellme.pw, ios-api.duolingo.com, ios-api-1.duolingo.com, ios-api-2.duolingo.com, ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo.cn

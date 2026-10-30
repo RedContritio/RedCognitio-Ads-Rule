@@ -1,0 +1,126 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8"><title>MARR-015 - MissAV</title>
+<script type="text/javascript" src="https://creative.myavlive.com/widgets/Spot/lib.js" id="SCSpotScript" async=""></script>
+</head><body class="relative">
+<div x-data="{ baseUrl: 'https://missav123.com/cn/marr-015',
+directUrls: JSON.parse('[\"https:\\\/\\\/tsyndicate.com\\\/api\\\/v1\\\/direct\\\/c65c80b4\"]'),
+directUrlsIphone: JSON.parse('[\"https:\\\/\\\/tsyndicate.com\\\/api\\\/v1\\\/direct\\\/c65c80b4\",\"https:\\\/\\\/go.greentrafsa.com\\\/smartpop\\\/269a4b2a\"]'),
+popped: $persist({ urls: [], timestamp: 0 }).using(sessionStorage), popOnce: false,
+pop() {
+            if (this.popOnce) {
+                return
+            }
+
+            this.popOnce = true
+
+            if (Date.now() - this.popped.timestamp > 86400 * 1000 && this.popped.urls.length > 0) {
+                this.popped.urls = []
+            }
+
+            const directUrls = (window.navigator.userAgent.includes('iPhone') ? this.directUrlsIphone : this.directUrls)
+                .map(value => ({ value, sort: Math.random() }))
+                .sort((a, b) => a.sort - b.sort)
+                .map(({ value }) => value)
+
+            const nextDirectUrl = directUrls.find(directUrl => ! this.popped.urls.includes(directUrl))
+
+            if (nextDirectUrl) {
+                this.popped.urls.push(nextDirectUrl)
+                this.popped.timestamp = Date.now()
+
+                const popWindow = window.open(`/pop?url=${encodeURIComponent(nextDirectUrl)}`, '_blank')
+
+                const timer = setInterval(() => {
+                    if (! popWindow || popWindow.closed) {
+                        clearInterval(timer)
+                        window.player.play()
+                    }
+                }, 300)
+            }
+        },
+}">
+<div @click="pop()" @keyup.space.window="pop()" class="aspect-w-16 aspect-h-9">
+            <video controls="" playsinline="" data-poster="https://fourhoi.com/marr-015/cover-n.jpg" preload="none" class="player" crossorigin="anonymous" style="--plyr-color-main: #fe628e; --plyr-captions-background: rgba(0, 0, 0, 0.5);">
+                                            </video>
+</div>
+<div class="under_player">
+                            <div class="
+                    lg:hidden
+            ">
+    <div class="mx-auto" style="width: 300px; height: 100px;">
+    <iframe width="300px" height="100px" style="display:block" marginwidth="0" marginheight="0" frameborder="no" src="https://go.mayzaent.com/smartpop/607f4962e8b0f949e1bb41ca6ff1f911bf820b416e89a863ec58c14b2d3a0b59?userId=0c96df4abeb0e8f90e4c799ab382981f84b483088706eee78a0b2896dd798907"></iframe>
+</div>
+</div>
+                        </div>
+<div class="mx-auto" style="width: 300px; height: 250px;">
+    <iframe referrerpolicy="no-referrer" src="https://t.snaptrckr.fun/s1/bc21a4fe-5e9b-4936-a844-b3e5f04c4cdc?externalId={impressionId}&amp;cv1={impressionId}&amp;cv2={userId}&amp;cv3={device}&amp;cv4={creativeId}&amp;cv5={campaignId}&amp;cv6={language}&amp;cv8={browser}&amp;cv9={siteId}&amp;cv10={creativeName}" width="300" height="250" scrolling="no" marginwidth="0" marginheight="0" frameborder="0"></iframe>
+</div>
+<div x-init="$nextTick(() =&gt; {
+                            let containerWidth = $refs.stripchat.offsetWidth
+
+                            let height, rows, columns
+
+                            if (document.documentElement.clientWidth &gt;= 1280) {
+                                height = Math.round((((containerWidth - 60 - 40) / 4) / 16 * 9) + 40)
+                                rows = 1
+                                columns = 4
+                            } else if (document.documentElement.clientWidth &gt;= 768) {
+                                height = Math.round((((containerWidth - 40 - 30) / 3) / 16 * 9) + 40)
+                                rows = 1
+                                columns = 3
+                            } else {
+                                height = Math.round((((containerWidth - 20 - 20) / 2) / 16 * 9) + 34)
+                                rows = 1
+                                columns = 2
+                            }
+
+                            $refs.stripchat.innerHTML = `&lt;iframe width='100%' height='${height}' style='display:block' marginWidth='0' marginHeight='0' frameBorder='no' src='https://creative.myavlive.com/widgets/v4/Universal?thumbsMargin=20&amp;gridRows=${rows}&amp;gridColumns=${columns}&amp;responsive=0&amp;hideButton=1&amp;hideTitle=1&amp;userId=050103608cf9b4d04684e5804b8637ff881d466e3ceaf77c1cc78be33cb1f3fe&amp;campaignId=under_player&amp;tag=girls/chinese'&gt;&lt;/iframe&gt;`
+                        })" x-ref="stripchat" class="-m-5 mb-2"><iframe width="100%" height="135" style="display:block" marginwidth="0" marginheight="0" frameborder="no" src="https://creative.myavlive.com/widgets/v4/Universal?thumbsMargin=20&amp;gridRows=1&amp;gridColumns=2&amp;responsive=0&amp;hideButton=1&amp;hideTitle=1&amp;userId=050103608cf9b4d04684e5804b8637ff881d466e3ceaf77c1cc78be33cb1f3fe&amp;campaignId=under_player&amp;tag=girls/chinese"></iframe>
+<span x-show="showCollapse === 'partners'" style="display: none;">
+            <a href="https://bit.ly/4iDdcJA" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            免费成人ai短剧
+        </a>
+            <a href="https://bit.ly/4A7mF23" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            海量短剧免费看
+        </a>
+            <a href="https://bit.ly/4glXXDZ" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            哔咔漫画
+        </a>
+            <a href="https://bit.ly/4BsoDeF" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            全球最大色情平台
+        </a>
+            <a href="https://bit.ly/4snVsp5" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            全球好片看X站
+        </a>
+            <a href="https://bit.ly/4zuQfhx" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            黄果AI短剧
+        </a>
+            <a href="https://bit.ly/3UywEhg" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            エロライブ配信
+        </a>
+            <a href="https://bit.ly/47vgCId" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            糖心VLOG
+        </a>
+            <a href="https://bit.ly/4sp11U1" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            成人抖阴破解版
+        </a>
+            <a href="https://bit.ly/4yvYmt7" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            禁果短剧最X尺度
+        </a>
+            <a href="https://bit.ly/4dSSGSO" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            黄果漫剧
+        </a>
+            <a href="https://bit.ly/4hSejot" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            黄果短剧免费版
+        </a>
+            <a href="https://bit.ly/4vYDR81" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            AI女友任你肏
+        </a>
+            <a href="https://bit.ly/4zTfytZ" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            体育电子百家乐
+        </a>
+            <a href="https://bit.ly/4hSzJSv" rel="sponsored nofollow noopener noreferrer" target="_blank" class="block px-4 py-2 text-sm leading-5 text-nord5 bg-nord3 hover:bg-nord2">
+            同城约炮免费上门
+        </a>
+    </span>
+</body></html>

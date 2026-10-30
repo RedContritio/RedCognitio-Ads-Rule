@@ -11,7 +11,7 @@ const mirrors = [
   { suffix: "-ghproxy", label: "ghproxy 镜像", base: `https://gh-proxy.com/https://raw.githubusercontent.com/${repository}/refs/heads/main` },
   { suffix: "-jsdelivr", label: "jsDelivr 镜像", base: `https://cdn.jsdelivr.net/gh/${repository}@main` },
 ];
-const commonScripts = ["zhihu-clean.js", "Taobao-ads-clean.js", "pica-clean.js"];
+const commonScripts = ["zhihu-clean.js", "Taobao-ads-clean.js", "pica-clean.js", "missav-clean.js", "jav-clean.js", "duolingo-clean.js"];
 
 export function validateMetadata(metadata) {
   if (typeof metadata.version !== "string" || !/^1\.0\.(0|[1-9]\d*)$/.test(metadata.version)) {
@@ -28,7 +28,7 @@ export async function generateArtifacts(metadata, sourceRoot = root) {
   const artifacts = new Map();
   for (const mode of ["release", "debug"]) {
     const debug = mode === "debug";
-    const scripts = debug ? [...commonScripts, "netease-debug.js", "amap-dump.js"] : commonScripts;
+    const scripts = debug ? [...commonScripts, "netease-debug.js", "amap-dump.js", "duolingo-dump.js"] : commonScripts;
     for (const filename of scripts) {
       const source = fs.readFileSync(path.join(sourceRoot, "scripts", filename), "utf8");
       const { code } = await minify(source, {
@@ -37,7 +37,7 @@ export async function generateArtifacts(metadata, sourceRoot = root) {
         compress: { global_defs: { __DEBUG__: debug }, passes: 3, toplevel: true, drop_console: !debug },
         format: { beautify: true, comments: /SPDX-License-Identifier/ },
       });
-      if (!debug && /console\s*\.|\bdebug\b|\w+_debug|ZHCLEAN|ZHSEARCH|TBCLEAN|NCMDEBUG|logSearchResponse/.test(code)) {
+      if (!debug && /console\s*\.|\bdebug\b|\w+_debug|ZHCLEAN|ZHSEARCH|TBCLEAN|NCMDEBUG|DUOLINGO-CLEAN|DUODUMP|logSearchResponse/.test(code)) {
         throw new Error(`Release 脚本含调试代码：${filename}`);
       }
       artifacts.set(`dist/${mode}/scripts/${filename}`, code.replace(/[ \t]+$/gm, "") + "\n");
@@ -54,12 +54,15 @@ export async function generateArtifacts(metadata, sourceRoot = root) {
       let plugin = template;
       if (!debug) {
         plugin = plugin.split("\n").filter(line =>
-          !/^\w+_debug = /.test(line) && !line.includes("netease-debug.js") && !line.includes("amap-dump.js")
+          !/^\w+_debug = /.test(line) && !line.includes("netease-debug.js") && !line.includes("amap-dump.js") && !line.includes("duolingo-dump.js")
         ).join("\n");
         plugin = plugin.replaceAll(", ${zhihu_debug}", "")
           .replaceAll(", {${taobao_debug}}", "")
           .replaceAll(", ${pica_debug}", "")
-          .replaceAll(", {${amap_debug}}", "");
+          .replaceAll(", {${amap_debug}}", "")
+          .replaceAll(", ${missav_debug}", "")
+          .replaceAll(", ${jav_debug}", "")
+          .replaceAll(", ${duolingo_debug}", "");
       }
       plugin = plugin.replace(/\{\{(\w+)\}\}/g, (_, key) => {
         if (!(key in values)) throw new Error(`未知模板变量：${key}`);

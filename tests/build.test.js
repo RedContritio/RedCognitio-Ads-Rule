@@ -27,7 +27,7 @@ function run(filename, argument, url, body) {
 test("committed artifacts reproduce exactly with the build in the third version component", async () => {
   const { generateArtifacts, checkArtifacts } = await builder;
   const artifacts = await generateArtifacts(metadata);
-  assert.equal(artifacts.size, 14);
+  assert.equal(artifacts.size, 21);
   checkArtifacts(artifacts);
   for (const [filename, content] of artifacts) {
     if (!filename.endsWith(".plugin")) continue;
@@ -36,10 +36,10 @@ test("committed artifacts reproduce exactly with the build in the third version 
     assert(content.includes(`#!date=${metadata.date} · ${metadata.version}\n`), filename);
     assert(!content.includes("#!build="), filename);
     assert(!/1\.0\.\d+ \(\d+\)|构建 \d+/.test(content), filename);
-    assert.equal((content.match(/^\w+ = switch,/gm) || []).length, debug ? 11 : 6, filename);
-    assert.equal((content.match(/^\w+_debug = switch,false,/gm) || []).length, debug ? 5 : 0, filename);
+    assert.equal((content.match(/^\w+ = switch,/gm) || []).length, debug ? 17 : 9, filename);
+    assert.equal((content.match(/^\w+_debug = switch,false,/gm) || []).length, debug ? 8 : 0, filename);
     const scripts = [...content.matchAll(/then script\("([^"]+)"/g)].map(match => match[1]);
-    assert.equal(scripts.length, debug ? 6 : 4, filename);
+    assert.equal(scripts.length, debug ? 10 : 7, filename);
     for (const url of scripts) {
       const parsed = new URL(url);
       assert.equal(parsed.searchParams.get("v"), metadata.version, filename);
@@ -70,7 +70,7 @@ test("Release strips debug code and stays silent even with every debug argument 
     ["Taobao-ads-clean.js", "https://poplayer.template.alibaba.com/test.json", '{"enable":true}'],
   ];
   assert.deepEqual(fs.readdirSync(path.join(root, "dist/release/scripts")).sort(),
-    [...cases.map(item => item[0]), "pica-clean.js"].sort());
+    [...cases.map(item => item[0]), "pica-clean.js", "missav-clean.js", "jav-clean.js", "duolingo-clean.js"].sort());
   for (const [script, url, body] of cases) {
     const filename = `dist/release/scripts/${script}`;
     const source = fs.readFileSync(path.join(root, filename), "utf8");
@@ -116,10 +116,12 @@ test("compiled Debug retains full search diagnostics and independent default-off
     ["Taobao-ads-clean.js", "taobao_debug", "https://poplayer.template.alibaba.com/test.json", '{"enable":true}'],
     ["netease-debug.js", "netease_debug", "https://music.163.com/eapi/batch", ""],
     ["pica-clean.js", "pica_debug", "https://manhuabika.com/", '<!DOCTYPE html><html><head><meta name="application-name" content="PicaWeb"></head><body></body></html>'],
+    ["missav-clean.js", "missav_debug", "https://missav123.com/cn/", '<!DOCTYPE html><html><head><title>missav</title></head><body></body></html>'],
+    ["duolingo-dump.js", "duolingo_debug", "https://ios-api-cf.duolingo.com/2023-05-23/batch", JSON.stringify({ responses: [{ headers: {}, body: JSON.stringify({ id: 1, subscriberLevel: "FREE", shopItems: [] }) }] })],
   ];
   for (const [script, flag, url, raw] of cases) {
     const filename = `dist/debug/scripts/${script}`;
-    const otherFlags = Object.fromEntries(["zhihu_debug", "taobao_debug", "netease_debug", "pica_debug"].filter(key => key !== flag).map(key => [key, true]));
+    const otherFlags = Object.fromEntries(["zhihu_debug", "taobao_debug", "netease_debug", "pica_debug", "missav_debug"].filter(key => key !== flag).map(key => [key, true]));
     for (const argument of [undefined, { [flag]: false }, otherFlags]) {
       assert.deepEqual(run(filename, argument, url, raw).logs, []);
     }
@@ -155,9 +157,10 @@ test("compiled Taobao behavior matches source in both builds", () => {
 
 test("both build modes preserve all native rules and business script conditions", () => {
   function rules(source) {
-    return source.split("\n").filter(line => !/^#!|^\w+_debug = |netease-debug\.js|amap-dump\.js/.test(line))
+    return source.split("\n").filter(line => !/^#!|^\w+_debug = |netease-debug\.js|amap-dump\.js|duolingo-dump\.js/.test(line))
       .map(line => line.replaceAll(", ${zhihu_debug}", "").replaceAll(", {${taobao_debug}}", "")
         .replaceAll(", ${pica_debug}", "").replaceAll(", {${amap_debug}}", "")
+        .replaceAll(", ${missav_debug}", "").replaceAll(", ${jav_debug}", "").replaceAll(", ${duolingo_debug}", "")
         .replace(/https:[^"]+\/dist\/(release|debug)\/scripts\//g, "scripts/"))
       .join("\n").trim();
   }

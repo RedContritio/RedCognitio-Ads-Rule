@@ -124,7 +124,7 @@ test("all distributions declare default-off flags and pass only the owning debug
     ["Pica-URL.module", ["pica"]],
     ["Zhihu-Dump.module", ["zhihu"]], ["Zhihu-Dump-ghproxy.module", ["zhihu"]],
   ];
-  for (const [file, apps] of [...plugins.map(file => [file, ["zhihu", "taobao", "netease", "pica", "amap"]]), ...modules]) {
+  for (const [file, apps] of [...plugins.map(file => [file, ["zhihu", "taobao", "netease", "pica", "amap", "missav", "jav", "duolingo"]]), ...modules]) {
     const lines = fs.readFileSync(path.join(root, file), "utf8").split("\n");
     for (const app of apps) {
       assert.equal(lines.filter(line => line.startsWith(`${app}_debug = switch,false,type=boolean,`)).length, 1, file);
@@ -134,10 +134,13 @@ test("all distributions declare default-off flags and pass only the owning debug
         : line.includes("netease-debug.js") ? "netease"
         : line.includes("pica-clean.js") ? "pica"
         : line.includes("amap-dump.js") ? "amap"
+        : line.includes("missav-clean.js") ? "missav"
+        : line.includes("jav-clean.js") ? "jav"
+        : line.includes("duolingo-") ? "duolingo"
         : "zhihu";
       assert(line.includes('${' + app + '_debug}'), file);
       const args = line.match(/, \{(.*?)\}\) with/)[1];
-      for (const other of ["zhihu", "taobao", "netease", "pica", "amap"].filter(name => name !== app)) assert(!args.includes(other + "_debug"), file);
+      for (const other of ["zhihu", "taobao", "netease", "pica", "amap", "missav", "jav", "duolingo"].filter(name => name !== app)) assert(!args.includes(other + "_debug"), file);
       const version = file.endsWith(".plugin") ? "1.0." : lines.find(line => line.startsWith("#!version=")).slice(10);
       assert(line.includes("?v=" + version), file);
       if (app === "netease" || app === "amap" || file.includes("Dump")) {
