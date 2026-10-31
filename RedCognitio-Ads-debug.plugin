@@ -1,9 +1,9 @@
 #!name=RedCognitio 去广告合集（Debug）
-#!desc=知乎 / 淘宝 / 网易云音乐 / 哔咔 / 高德 / missav / JAV 站族 / 多邻国，按应用开关；Debug · 1.0.12；需 MITM，Loon 3.5.1+
+#!desc=知乎 / 淘宝 / 网易云音乐 / 哔咔 / 高德 / missav / JAV 站族 / 多邻国，按应用开关；Debug · 1.0.14；需 MITM，Loon 3.5.1+
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=1.0.12
-#!date=2026-10-30 · 1.0.12
+#!version=1.0.14
+#!date=2026-10-31 · 1.0.14
 #!loon_version=3.5.1(983)
 #!category=广告拦截
 #!type=normal
@@ -233,6 +233,11 @@ request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhih
 request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/fringe\/ad/i then reject_dict(200)
 request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/content-distribution-core\/bubble\/common\/show/i then reject_dict(200)
 
+# 开屏与彩蛋：上面的 commercial_api 通拦已覆盖，这两条是显式冗余。
+# 包内证据：commercial_api/launch_v2、real_time_launch_v2、sdk_launch；彩蛋走 search_eggs、pull_refresh_search_eggs。
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/commercial_api\/(?:launch_v2|real_time_launch_v2|sdk_launch)(?:[/?]|$)/i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/commercial_api\/(?:search_eggs|pull_refresh_search_eggs)(?:[/?]|$)/i then reject_dict(200)
+
 # ══ 回答流 ══
 request if ${zhihu_purify} == true && ${url} ~= /^(https?:\/\/(?:[a-z0-9-]+\.)*zhihu\.com\/(?:simple-)?next-render\?)(?=(?:[^&#]*&)*type=answer(?:&|$))((?:[^&#]*&)*scenes=)[^&#]*/i as answerFlow then url.replace("${answerFlow.1}${answerFlow.2}question")
 
@@ -303,41 +308,41 @@ response if ${amap_enable} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9-]+\.)*am
 #       ws/banner/lists（首页 banner，不是开屏）、ws/device/adius/（设备 ID 上报）。
 
 [Script]
-request if ${netease_debug} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\//i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/netease-debug.js?v=1.0.12", {${netease_debug}}) with tag="网易云音乐调试"
+request if ${netease_debug} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\//i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/netease-debug.js?v=1.0.14", {${netease_debug}}) with tag="网易云音乐调试"
 
 # 开屏图片与视频
-response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.12", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
+response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.14", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
 
 # 开屏活动（poplayer 远程模板）
-response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.12", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
+response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/Taobao-ads-clean.js?v=1.0.14", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
 
 # 不拦：首页主数据 / 推荐流 / newface 首页 / 商品详情 / 购物车 / 订单 / 搜索 /
 #       mtop 网关 / 会场 H5 / gw.alicdn.com 商品图 / dinamicx 弹窗模板
 
 
 # 哔咔：PicaWeb 页面注入（路径无扩展名才可能是 SPA 的 HTML，assets 与接口不进脚本）
-response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/pica-clean.js?v=1.0.12", {${pica_enable}, ${pica_debug}}) with tag="哔咔去广告注入", requires_body=true
+response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/pica-clean.js?v=1.0.14", {${pica_enable}, ${pica_debug}}) with tag="哔咔去广告注入", requires_body=true
 
-response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/zhihu-clean.js?v=1.0.12", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/zhihu-clean.js?v=1.0.14", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
 
 # missav：页面注入。路径无扩展名才可能是文档，assets / fonts / 视频分片不进脚本
-response if ${missav_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*(?:missav123\.com|missav\.(?:ws|ai|live))\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/missav-clean.js?v=1.0.12", {${missav_enable}, ${missav_debug}}) with tag="missav 去广告注入", requires_body=true
+response if ${missav_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*(?:missav123\.com|missav\.(?:ws|ai|live))\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/missav-clean.js?v=1.0.14", {${missav_enable}, ${missav_debug}}) with tag="missav 去广告注入", requires_body=true
 
 # JAV 站族：同一套判据铺一批站；新增站点只加域名，判据不用改
-response if ${jav_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*(?:18av\.mm-cg\.com|njav\.tv|123av\.com|javdb\.com|javbus\.com|jav321\.com|javgg\.net|supjav\.com|javlibrary\.com|avmoo\.com|tellme\.pw)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/jav-clean.js?v=1.0.12", {${jav_enable}, ${jav_debug}}) with tag="JAV 站族去广告注入", requires_body=true
+response if ${jav_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*(?:18av\.mm-cg\.com|njav\.tv|123av\.com|javdb\.com|javbus\.com|jav321\.com|javgg\.net|supjav\.com|javlibrary\.com|avmoo\.com|tellme\.pw)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/jav-clean.js?v=1.0.14", {${jav_enable}, ${jav_debug}}) with tag="JAV 站族去广告注入", requires_body=true
 # 多邻国：插屏放不放由**账号档位**决定，不是广告接口，所以改写点是首方用户数据。
 # 命中面只有 2023-05-23 的 batch（批量包裹：responses[] 内 body 可能是字符串也可能是对象，
 # 且带 etag 的那条必须原样放行，否则条件请求会污染缓存）与 users/{id}（裸 userdata）。
 # 只改三处：shopItems 补 gold_subscription、subscriberLevel 置 GOLD、trackingProperties.has_item_*_subscription 全开。
-response if ${duolingo_enable} == true && ${url} ~= /^https?:\/\/(?:ios-api-[a-z0-9-]+|api\d+)\.duolingo\.c(?:n|om)\/2023-05-23\/(?:batch|users\/[^\/?#]+)(?:[?#]|$)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/duolingo-clean.js?v=1.0.12", {${duolingo_enable}, ${duolingo_debug}}) with tag="多邻国去广告", requires_body=true
+response if ${duolingo_enable} == true && ${url} ~= /^https?:\/\/(?:ios-api-[a-z0-9-]+|api\d+)\.duolingo\.c(?:n|om)\/2023-05-23\/(?:batch|users\/[^\/?#]+)(?:[?#]|$)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/duolingo-clean.js?v=1.0.14", {${duolingo_enable}, ${duolingo_debug}}) with tag="多邻国去广告", requires_body=true
 
 # 判据诊断（Debug）：上面改完仍出插屏，说明判据不在资格层。本行只把候选**键名**打到日志，不落值。
-response if ${duolingo_debug} == true && ${url} ~= /^https?:\/\/(?:ios-api-[a-z0-9-]+|api\d+)\.duolingo\.c(?:n|om)\/2023-05-23\/(?:batch|users\/[^\/?#]+)(?:[?#]|$)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/duolingo-dump.js?v=1.0.12", {${duolingo_debug}}) with tag="多邻国判据诊断", requires_body=true
+response if ${duolingo_debug} == true && ${url} ~= /^https?:\/\/(?:ios-api-[a-z0-9-]+|api\d+)\.duolingo\.c(?:n|om)\/2023-05-23\/(?:batch|users\/[^\/?#]+)(?:[?#]|$)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/duolingo-dump.js?v=1.0.14", {${duolingo_debug}}) with tag="多邻国判据诊断", requires_body=true
 
 
 # 高德：开屏接口诊断。iOS 取不到可解密样本，开屏到底走哪台 AOS 主机只能靠抓一次启动回答；
 # 日志里 AMDEBUG 行的主机名决定 [MITM] 要不要补，AMDUMP-* 是响应体。
-response if ${amap_debug} == true && ${url} ~= /\/ws\/(?:valueadded|aos)\/alimama\/splash_screen/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/amap-dump.js?v=1.0.12", {${amap_debug}}) with tag="高德开屏诊断", requires_body=true
+response if ${amap_debug} == true && ${url} ~= /\/ws\/(?:valueadded|aos)\/alimama\/splash_screen/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/refs/heads/main/dist/debug/scripts/amap-dump.js?v=1.0.14", {${amap_debug}}) with tag="高德开屏诊断", requires_body=true
 
 [MITM]
 hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com, m5.amap.com, amap-aos-info-nogw.amap.com, missav.ws, *.missav.ws, missav123.com, *.missav123.com, missav.ai, *.missav.ai, missav.live, *.missav.live, 18av.mm-cg.com, *.18av.mm-cg.com, njav.tv, *.njav.tv, 123av.com, *.123av.com, javdb.com, *.javdb.com, javbus.com, *.javbus.com, jav321.com, *.jav321.com, javgg.net, *.javgg.net, supjav.com, *.supjav.com, javlibrary.com, *.javlibrary.com, avmoo.com, *.avmoo.com, tellme.pw, ios-api.duolingo.com, ios-api-1.duolingo.com, ios-api-2.duolingo.com, ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo.cn

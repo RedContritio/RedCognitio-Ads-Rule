@@ -233,6 +233,11 @@ request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhih
 request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/fringe\/ad/i then reject_dict(200)
 request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/content-distribution-core\/bubble\/common\/show/i then reject_dict(200)
 
+# 开屏与彩蛋：上面的 commercial_api 通拦已覆盖，这两条是显式冗余。
+# 包内证据：commercial_api/launch_v2、real_time_launch_v2、sdk_launch；彩蛋走 search_eggs、pull_refresh_search_eggs。
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/commercial_api\/(?:launch_v2|real_time_launch_v2|sdk_launch)(?:[/?]|$)/i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/commercial_api\/(?:search_eggs|pull_refresh_search_eggs)(?:[/?]|$)/i then reject_dict(200)
+
 # ══ 回答流 ══
 request if ${zhihu_purify} == true && ${url} ~= /^(https?:\/\/(?:[a-z0-9-]+\.)*zhihu\.com\/(?:simple-)?next-render\?)(?=(?:[^&#]*&)*type=answer(?:&|$))((?:[^&#]*&)*scenes=)[^&#]*/i as answerFlow then url.replace("${answerFlow.1}${answerFlow.2}question")
 

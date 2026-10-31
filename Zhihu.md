@@ -41,6 +41,8 @@
 |---|---|---|---|
 | `/api/cloud/zhihu/config/all` | 任一；关闭 HTTPDNS、备用 IP、QUIC 配置，保留其他配置 | 包分析、参考实现、本机 | 自动测试、真实字段核对 |
 | `/commercial_api/` | 去广告；`200 + {}`，覆盖开屏、底部等广告位 | 包分析、参考实现、本机 | 真机确认、真实回放 |
+| `/commercial_api/(launch_v2|real_time_launch_v2|sdk_launch)` | 去广告；`200 + {}`，开屏显式冗余 | 包分析（dex 字符串） | 静态参考 |
+| `/commercial_api/(search_eggs|pull_refresh_search_eggs)` | 去广告；`200 + {}`，首页搜索框 / 下拉刷新彩蛋显式冗余 | 包分析（dex 字符串） | 静态参考 |
 | `/ad-style-service/`、`/ad-track/`、`/adx/third_sdk_info`、`/adEngine/`、`/fringe/ad`、`/content-distribution-core/bubble/common/show` | 去广告；`200 + {}` | 包分析、参考实现 | 静态参考 |
 | `/commercial_api/answer/ID/bottom-v2` | 去广告；响应层删除 `adjson` | 本机 | 真实回放 |
 | `zhstatic.zhihu.com/brand-ad/` | 去广告；404 | 本机 | 真实素材地址核对 |
@@ -95,8 +97,25 @@
 |---|---|---|---|
 | 2026-10-25 | 1.1.1 | 裸 IP 预取脚本把 `http://<IP>/` 探测回成 `{}`，图片 CDN 被判不可用，正文图不显示 | 删除 `zhihu-ad-preload.js` 与该路由，裸 IP 探测恢复直通 |
 | 2026-10-29 | 1.1.2 / 插件 1.0.2 | 详情页按 `type=card` 一刀切删结构段，想法（pin）与回答正文的图文卡片连同图片一起被删 | 改为只删带广告标记的 card 段：`card_type` 命中 ad/ads/advert/commercial/promotion，或段内含 `adjson`、`ad_info`、`ad_zone_id`、`creative_id` 等 |
+| 2026-10-31 | 1.1.3 / 插件 1.0.14 | 开屏广告与首页彩蛋「又回来了」 | 日志证明是 Loon 证书丢失导致 `Mitm unavailable`（06:52 起），规则本身未退化；另外把 `launch_v2` / `real_time_launch_v2` / `sdk_launch` 与 `search_eggs` / `pull_refresh_search_eggs` 显式列出，避免通拦收窄时连带漏掉 |
 
 两次都属于「去广告规则误伤正文」，判定标准已经收窄为：**标记为广告才删，其余一律保留**。想法详情的图片若挂在非 card 段，仍需用 `Zhihu-Dump.module` 抓 `pins/v2/{id}` 响应再定位。
+
+### MITM 前置检查（先做，再谈规则）
+
+本文件全部 `[Rewrite]` / `[Script]` 都以 MITM 为前提。证书缺失时 Loon 只做规则转发，日志写：
+
+```
+Load Cert from file failed No such file or directory.
+Failed to load the current profile certificate. Mitm unavailable.
+```
+
+此时 QUIC 拦截、域名拦截照常生效（日志里仍能看到 `Reject domain:… in DNS phase`），所以「三方联盟拦住了、知乎自己的开屏还在」是 MITM 故障的典型指纹，不是路径规则写错。判定顺序：
+
+1. 日志搜 `Match MITM host:api.zhihu.com`；没有就重做证书（生成 → 安装 → 完全信任 → 关开一次全局代理，只重载配置不会重建证书）。
+2. 有 MITM 再搜 `match http-response script:知乎内容净化` 与 `ZHCLEAN`。
+3. 都没有才去查 URL 正则与规则顺序。
+
 
 ## 修改与验证
 

@@ -3,8 +3,8 @@
 #!category=广告拦截
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=1.1.2
-#!date=2026-10-29 · 1.1.2
+#!version=1.1.3
+#!date=2026-10-31 · 1.1.3
 #!loon_version=3.5.1(983)
 #
 # Copyright 2026 RedContritio
@@ -33,6 +33,13 @@ response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^
 # ══ 广告位 ══
 # 14 个广告位接口，含开屏 launch_v2、按回答 ID 请求的 bottom-v2
 request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/commercial_api\//i then reject_dict(200)
+
+# 开屏与彩蛋：上面的 commercial_api 通拦已覆盖，这两条是显式冗余。
+# 包内证据（classes2/3/4/12/13/14.dex）：commercial_api/launch_v2、real_time_launch_v2、sdk_launch；
+# 彩蛋（首页搜索框 / 下拉刷新的节日动画）走 commercial_api/search_eggs、pull_refresh_search_eggs。
+# 单独列出的理由：以后若为某个子接口放行而收窄通拦，开屏与彩蛋不会连带漏掉。
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/commercial_api\/(?:launch_v2|real_time_launch_v2|sdk_launch)(?:[/?]|$)/i then reject_dict(200)
+request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/commercial_api\/(?:search_eggs|pull_refresh_search_eggs)(?:[/?]|$)/i then reject_dict(200)
 request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/ad-style-service\//i then reject_dict(200)
 request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/ad-track\//i then reject_dict(200)
 request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/adx\/third_sdk_info/i then reject_dict(200)
@@ -76,6 +83,9 @@ request if ${zhihu_enable} == true && ${url} ~= /^https?:\/\/zhstatic\.zhihu\.co
 # sugar.zhihu.com 兼作网络探活域（/check_health），故按路径拦而非整域
 
 [Script]
-response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-clean.js?v=1.1.2", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/scripts/zhihu-clean.js?v=1.1.3", {${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}) with tag="知乎内容净化", requires_body=true
 [MITM]
+# 本文件全部 [Rewrite]/[Script] 都以 MITM 为前提。没有可用证书时 Loon 只做规则转发，
+# 日志里会写 "Failed to load the current profile certificate. Mitm unavailable."，
+# 开屏、彩蛋、信息流广告会全部照旧出现；排查时先看这一行，再查规则。
 hostname = zhihu.com, *.zhihu.com
