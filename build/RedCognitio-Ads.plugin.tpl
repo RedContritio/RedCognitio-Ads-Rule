@@ -373,6 +373,9 @@ response if ${duolingo_enable} == true && ${url} ~= /^https?:\/\/(?:ios-api-[a-z
 
 # 判据诊断（Debug）：上面改完仍出插屏，说明判据不在资格层。本行只把候选**键名**打到日志，不落值。
 response if ${duolingo_debug} == true && ${url} ~= /^https?:\/\/(?:ios-api-[a-z0-9-]+|api\d+)\.duolingo\.c(?:n|om)\/2023-05-23\/(?:batch|users\/[^\/?#]+)(?:[?#]|$)/i then script("{{scripts}}/duolingo-dump.js?v={{version}}", {${duolingo_debug}}) with tag="多邻国判据诊断", requires_body=true
+# 多邻国：广告/促销决策面诊断（仅 Debug 构建）。放不放推广由 plus-promotions 决策接口决定，
+# 与订阅资格是两套；midas-bandits 决定给哪档报价。这几条只看键名，不落值。
+response if ${duolingo_debug} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9.-]*duolingo\.c(?:n|om)\/(?:.*\/)?(?:plus-promotions|subscription-catalog|available-features)|midas-bandits-prod\.duolingo\.cn\/)/i then script("{{scripts}}/duolingo-dump.js?v={{version}}", {${duolingo_debug}}) with tag="多邻国决策诊断", requires_body=true
 
 
 # 闲鱼：广告接口诊断（仅 Debug 构建）。XYDEBUG 请求行 / XYDUMP 完整响应 / XYFEED 卡片结构
@@ -385,4 +388,4 @@ response if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.(?:taobao\.idle(?:
 response if ${amap_debug} == true && ${url} ~= /\/ws\/(?:valueadded|aos)\/alimama\/splash_screen/i then script("{{scripts}}/amap-dump.js?v={{version}}", {${amap_debug}}) with tag="高德开屏诊断", requires_body=true
 
 [MITM]
-hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com, m5.amap.com, m5-x.amap.com, amap-aos-info-nogw.amap.com, goofish.com, *.goofish.com, missav.ws, *.missav.ws, missav123.com, *.missav123.com, missav.ai, *.missav.ai, missav.live, *.missav.live, 18av.mm-cg.com, *.18av.mm-cg.com, njav.tv, *.njav.tv, 123av.com, *.123av.com, javdb.com, *.javdb.com, javbus.com, *.javbus.com, jav321.com, *.jav321.com, javgg.net, *.javgg.net, supjav.com, *.supjav.com, javlibrary.com, *.javlibrary.com, avmoo.com, *.avmoo.com, tellme.pw, ios-api.duolingo.com, ios-api-1.duolingo.com, ios-api-2.duolingo.com, ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo.cn
+hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com, m5.amap.com, m5-x.amap.com, amap-aos-info-nogw.amap.com, goofish.com, *.goofish.com, missav.ws, *.missav.ws, missav123.com, *.missav123.com, missav.ai, *.missav.ai, missav.live, *.missav.live, 18av.mm-cg.com, *.18av.mm-cg.com, njav.tv, *.njav.tv, 123av.com, *.123av.com, javdb.com, *.javdb.com, javbus.com, *.javbus.com, jav321.com, *.jav321.com, javgg.net, *.javgg.net, supjav.com, *.supjav.com, javlibrary.com, *.javlibrary.com, avmoo.com, *.avmoo.com, tellme.pw, ios-api.duolingo.com, ios-api-1.duolingo.com, ios-api-2.duolingo.com, ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo.cn, midas-bandits-prod.duolingo.cn
