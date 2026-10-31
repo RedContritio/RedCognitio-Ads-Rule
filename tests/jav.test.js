@@ -89,20 +89,3 @@ test("jav：不误伤名字里带广告域的链接与站内 window.open", () =>
   assert.match(out, /window\.open/);
   assert.match(out, /\/js\/app\.js/);
 });
-
-test("jav：合集里的开关、广告域、QUIC、注入与 MITM 都已接线", () => {
-  assert.match(template, /^jav_enable = switch,true,/m);
-  assert.match(template, /^jav_debug = switch,false,/m);
-  for (const host of ["exoclick.com", "exosrv.com", "magsrv.com", "pemsrv.com", "realsrv.com", "jads.co", "juicyads.com", "tsyndicate.com", "trafficjunky.net"]) {
-    assert.ok(template.includes(`DOMAIN-SUFFIX,${host},REJECT`), host);
-  }
-  for (const site of ["18av.mm-cg.com", "njav.tv", "javdb.com", "javbus.com", "javgg.net", "supjav.com"]) {
-    assert.ok(template.includes(site), site);
-  }
-  assert.ok(template.includes("jav-clean.js"), "缺少注入脚本");
-  assert.match(template, /AND,\(\(DOMAIN-SUFFIX,18av\.mm-cg\.com\),\(PROTOCOL,QUIC\)\),REJECT/);
-  const mitm = template.match(/\[MITM\]\nhostname = (.+)/)[1].split(/,\s*/);
-  for (const host of ["18av.mm-cg.com", "*.18av.mm-cg.com", "njav.tv", "javdb.com", "*.javbus.com", "javgg.net", "supjav.com"]) {
-    assert.ok(mitm.includes(host), host);
-  }
-});

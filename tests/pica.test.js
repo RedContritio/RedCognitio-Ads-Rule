@@ -8,8 +8,7 @@ const root = path.join(__dirname, "..");
 const read = (filename) => fs.readFileSync(path.join(root, filename), "utf8");
 
 const source = read("scripts/pica-clean.js");
-const urlModule = read("Pica-URL.module");
-const domainModule = read("Pica-Domain.module");
+const urlModule = read("build/RedCognitio-Ads.plugin.tpl");
 
 const activeLines = (text) =>
   text.split("\n").filter((line) => line.trim() && !line.trim().startsWith("#"));
@@ -155,29 +154,6 @@ function boot(state = {}) {
 
 // ───────────────────────── 模块规则 ─────────────────────────
 
-test("域名模块只封广告域，不碰图片 CDN 与 API 域", () => {
-  const rules = activeLines(domainModule);
-  assert(rules.some((line) => line === "DOMAIN-SUFFIX,diwodiwo.xyz,REJECT,extended-matching,pre-matching"),
-    "缺少广告服务器规则");
-  assert(rules.some((line) => line === "DOMAIN,pica-juicy.picacomic.com,REJECT,extended-matching,pre-matching"),
-    "缺少旧版 H5 广告位规则");
-  assert(!domainModule.includes("[MITM]"), "域名模块不需要 MITM");
-  assert(!domainModule.includes("[Script]"), "域名模块不应带脚本");
-  for (const host of ["picaapi", "s3.picacomic.com", "storage1", "go2778", "acbbb", "manhuabika"]) {
-    assert(!rules.some((line) => line.includes(host)), `不应封业务域 ${host}`);
-  }
-});
-
-test("URL 模块拦 QUIC 并保留脚本与 MITM 配置", () => {
-  const rules = activeLines(urlModule);
-  assert(rules.some((line) => line.includes("PROTOCOL,QUIC") && line.includes("manhuabika.com")));
-  assert(rules.some((line) => line.includes("PROTOCOL,QUIC") && line.includes("picacomic.com")));
-  assert(rules.some((line) => line === "DOMAIN-SUFFIX,diwodiwo.xyz,REJECT,extended-matching,pre-matching"));
-  assert(/\[MITM\][\s\S]*hostname = manhuabika\.com/.test(urlModule), "缺少 MITM hostname");
-  assert(/pica-clean\.js\?v=0\.2\.0/.test(urlModule), "脚本地址应带版本号");
-  assert(/requires_body=true/.test(urlModule), "注入需要响应体");
-});
-
 test("注入规则只命中 SPA 页面，不命中静态资源与接口", () => {
   const line = urlModule.split("\n").find((text) => text.includes("pica-clean.js"));
   assert(line, "缺少注入规则");
@@ -206,7 +182,7 @@ test("注入规则只命中 SPA 页面，不命中静态资源与接口", () => 
 // ───────────────────────── 注入 ─────────────────────────
 
 test("PicaWeb 的 Service Worker 注册地址被拒，静态资源与接口不受影响", () => {
-  for (const file of ["Pica-URL.module", "build/RedCognitio-Ads.plugin.tpl"]) {
+  for (const file of ["build/RedCognitio-Ads.plugin.tpl"]) {
     const line = read(file).split("\n").find((text) => text.includes("sw\\.js"));
     assert(line, `${file}: 缺少 SW 拒绝规则`);
     const pattern = line.match(/~= \/(.*?)\/ then reject/)[1];
@@ -221,21 +197,13 @@ test("PicaWeb 的 Service Worker 注册地址被拒，静态资源与接口不�
 });
 
 test("SW 拒绝规则必须落在 [Rewrite] 段，写进 [Script] 段会被 Loon 当成脚本规则", () => {
-  for (const file of ["Pica-URL.module", "build/RedCognitio-Ads.plugin.tpl", "RedCognitio-Ads.plugin"]) {
+  for (const file of ["build/RedCognitio-Ads.plugin.tpl", "RedCognitio-Ads.plugin"]) {
     const lines = read(file).split("\n");
     const rewrite = lines.findIndex((line) => line.trim() === "[Rewrite]");
     const script = lines.findIndex((line) => line.trim() === "[Script]");
     const rule = lines.findIndex((line) => line.startsWith("request ") && line.includes("sw\\.js"));
     assert(rewrite >= 0 && script > rewrite, `${file}: 段结构异常`);
     assert(rule > rewrite && rule < script, `${file}: SW 拒绝规则不在 [Rewrite] 段`);
-  }
-});
-
-test("两个模块都带 pica-ad-api 关键字兜底，覆盖换域后的前缀写法", () => {
-  for (const file of ["Pica-URL.module", "Pica-Domain.module"]) {
-    assert(activeLines(read(file)).some(
-      (line) => line === "DOMAIN-KEYWORD,pica-ad-api,REJECT,extended-matching,pre-matching"
-    ), file);
   }
 });
 

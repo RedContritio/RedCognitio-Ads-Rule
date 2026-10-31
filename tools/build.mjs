@@ -12,6 +12,8 @@ const mirrors = [
   { suffix: "-jsdelivr", label: "jsDelivr 镜像", base: `https://cdn.jsdelivr.net/gh/${repository}@main` },
 ];
 const commonScripts = ["zhihu-clean.js", "Taobao-ads-clean.js", "pica-clean.js", "missav-clean.js", "jav-clean.js", "duolingo-clean.js"];
+// 仅 Debug 构建注入的诊断脚本：Release 会把引用它们的 [Script] 行整行删掉。
+const debugOnlyScripts = ["netease-debug.js", "amap-dump.js", "duolingo-dump.js", "xianyu-debug.js", "xianyu-dump.js", "xianyu-feed-probe.js"];
 
 export function validateMetadata(metadata) {
   if (typeof metadata.version !== "string" || !/^1\.0\.(0|[1-9]\d*)$/.test(metadata.version)) {
@@ -28,7 +30,7 @@ export async function generateArtifacts(metadata, sourceRoot = root) {
   const artifacts = new Map();
   for (const mode of ["release", "debug"]) {
     const debug = mode === "debug";
-    const scripts = debug ? [...commonScripts, "netease-debug.js", "amap-dump.js", "duolingo-dump.js"] : commonScripts;
+    const scripts = debug ? [...commonScripts, ...debugOnlyScripts] : commonScripts;
     for (const filename of scripts) {
       const source = fs.readFileSync(path.join(sourceRoot, "scripts", filename), "utf8");
       const { code } = await minify(source, {
@@ -54,7 +56,7 @@ export async function generateArtifacts(metadata, sourceRoot = root) {
       let plugin = template;
       if (!debug) {
         plugin = plugin.split("\n").filter(line =>
-          !/^\w+_debug = /.test(line) && !line.includes("netease-debug.js") && !line.includes("amap-dump.js") && !line.includes("duolingo-dump.js")
+          !/^\w+_debug = /.test(line) && !debugOnlyScripts.some(script => line.includes(script))
         ).join("\n");
         plugin = plugin.replaceAll(", ${zhihu_debug}", "")
           .replaceAll(", {${taobao_debug}}", "")
@@ -62,7 +64,8 @@ export async function generateArtifacts(metadata, sourceRoot = root) {
           .replaceAll(", {${amap_debug}}", "")
           .replaceAll(", ${missav_debug}", "")
           .replaceAll(", ${jav_debug}", "")
-          .replaceAll(", ${duolingo_debug}", "");
+          .replaceAll(", ${duolingo_debug}", "")
+          .replaceAll(", {${xianyu_debug}}", "");
       }
       plugin = plugin.replace(/\{\{(\w+)\}\}/g, (_, key) => {
         if (!(key in values)) throw new Error(`未知模板变量：${key}`);

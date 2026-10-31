@@ -122,6 +122,6 @@ com.taobao.tbpoplayer       MtopPopCheckHelper / PopLayerWebView / PopLayerWeexV
 
 ## 模块
 
-`Taobao-URL.module`（路径级 + 响应净化，需 MITM，Loon 3.5.1+）、`scripts/Taobao-ads-clean.js`
+合集插件内的淘宝段落（路径级 + 响应净化，需 MITM，Loon 3.5.1+）、`scripts/Taobao-ads-clean.js`
 
-路径模块 **0.2.0**。淘宝-调试默认关闭；开启后输出 `TBCLEAN` 净化结果与 JSON 解析错误，随开屏及 poplayer 响应净化执行。
+。淘宝-调试默认关闭；开启后输出 `TBCLEAN` 净化结果与 JSON 解析错误，随开屏及 poplayer 响应净化执行。

@@ -7,7 +7,7 @@
 
 Android 客户端 `com.picacomic.fregata` 作为旁证：同一套广告体系的早期形态。
 
-配套模块：`Pica-URL.module`（注入层，需 MITM）、`Pica-Domain.module`（纯域名，无需 MITM）。
+规则位置：合集插件 `RedCognitio-Ads{,-debug}.plugin` 的哔咔段落（注入层 + 域名层），装合集即覆盖，不另装模块。
 配套脚本：`scripts/pica-clean.js`。
 
 ## 0. 一句话结论
@@ -162,8 +162,8 @@ zone 常量只有 `zone_28`–`zone_35`、`zone_51`–`zone_54` 这 12 个，与
 | `DOMAIN-SUFFIX,diwodiwo.xyz,REJECT` | 广告服务器总域。下发、跳转、素材、H5 广告页都在它和它的子域（`pica-ad-api` / `pica-a-display`）下。iOS 原生端若真机出现空占位，按 §6 换成 `REJECT-DICT` |
 | `DOMAIN,pica-juicy.picacomic.com,REJECT` | 旧版 Android 的 H5 广告位宿主，2026-10-29 实测已不响应；服务端由 `/api/v1/init` 的 `waka` 字段下发新地址，保留此条防回切 |
 | `DOMAIN-KEYWORD,pica-ad-api,REJECT` | iOS 端把广告域写成前缀 `https://pica-ad-api.<domain>`，换域时这条兜底 |
-| `AND,((DOMAIN-SUFFIX,manhuabika.com),(PROTOCOL,QUIC)),REJECT`<br>`AND,((DOMAIN-SUFFIX,picacomic.com),(PROTOCOL,QUIC)),REJECT` | 只有 `Pica-URL.module` 需要：Cloudflare 对 h3 有 Alt-Svc，走 QUIC 就 MITM 不到，注入静默失效 |
-| `request … /manhuabika\.com\/(?:sw\.js|workbox-[^/?#]+\.js)/ then reject(404)` | 只有 `Pica-URL.module` 需要：见 §2.5，SW 会把导航喂成缓存壳 |
+| `AND,((DOMAIN-SUFFIX,manhuabika.com),(PROTOCOL,QUIC)),REJECT`<br>`AND,((DOMAIN-SUFFIX,picacomic.com),(PROTOCOL,QUIC)),REJECT` | 注入层需要：Cloudflare 对 h3 有 Alt-Svc，走 QUIC 就 MITM 不到，注入静默失效 |
+| `request … /manhuabika\.com\/(?:sw\.js|workbox-[^/?#]+\.js)/ then reject(404)` | 注入层需要：见 §2.5，SW 会把导航喂成缓存壳 |
 
 **不封 API 域**：`Me("picaapi")` 拼出的是 `https://picaapi.<当前 API 域名>`，域名会换（`go2778.com`、`acbbb.com` 是图片 CDN），封任何一个都会连坐登录与图片。广告域不跟着轮换，只封它。
 
@@ -192,7 +192,7 @@ zone 常量只有 `zone_28`–`zone_35`、`zone_51`–`zone_54` 这 12 个，与
 
 ## 4. 为什么需要 URL 模块
 
-只装 `Pica-Domain.module` 的效果：广告内容全部消失，但
+只留域名层的效果：广告内容全部消失，但
 
 - 阅读器翻到第 21 页会停在一张黑页上（`.reader-ad-fullpage` 被隐藏，页面本身还在分页里），需要手动再滑一次；
 - 详情页、章节列表、分类页的广告位被 `display:none` 后**不占位**，版式正常。
@@ -220,11 +220,8 @@ zone 常量只有 `zone_28`–`zone_35`、`zone_51`–`zone_54` 这 12 个，与
 
 ## 7. 安装
 
-1. Loon → 配置 → 模块 → 添加，三选一：
-   - `RedCognitio-Ads.plugin` 合集（已并入，开关名「哔咔-去广告」，需 MITM + 信任 Loon CA）
-   - `Pica-URL.module`（单模块，需 MITM + 信任 Loon CA）
-   - `Pica-Domain.module`（不装 CA 也能用，阅读器留黑页）
-2. URL 模块确认 MITM 已开，hostname 里有 `manhuabika.com`。
+1. Loon → 配置 → 插件 → 添加 `RedCognitio-Ads.plugin` 合集，确认开关「哔咔-去广告」为开（需 MITM + 信任 Loon CA）。
+2. 确认 MITM 已开，hostname 里有 `manhuabika.com`。
 3. **清一次站点数据**（Safari → 设置 → 高级 → 网站数据 → 删 `manhuabika.com`，或删掉主屏图标重开一次）：PicaWeb 的 Service Worker 会把旧壳和广告图缓存住，不清这一次，插件装了也看不到任何变化。
 4. 任选一本 ≥21 页的漫画，翻到第 21 页，应自动跳到第 22 页。
 
@@ -262,7 +259,7 @@ zone 常量只有 `zone_28`–`zone_35`、`zone_51`–`zone_54` 这 12 个，与
 - [ ] 上下滚动模式无 440 px 空占位；
 - [ ] 回归：登录、搜索、分类、章节列表、评论、图片加载正常。
 
-iOS 原生客户端（`com.picacomic.picacg.picacg` 2.5.85，只装 `Pica-Domain.module` 即可）：
+iOS 原生客户端（`com.picacomic.picacg.picacg` 2.5.85，域名层常驻即可）：
 
 - [ ] 冷启动首页不再弹广告弹窗（`homeTipADList` / `showHomeModalDialog`）；
 - [ ] 阅读器内不再出现广告页，且没有留下空白占位；

@@ -8,15 +8,13 @@
 |---|---|
 | `build/RedCognitio-Ads.plugin.tpl` | 合集规则模板 |
 | `RedCognitio-Ads*.plugin`、`dist/` | 自动生成的 Release / Debug 合集、镜像与脚本 |
-| [Zhihu-URL.module](Zhihu-URL.module) | 知乎路径规则、脚本路由、MITM |
-| [Zhihu-Domain.module](Zhihu-Domain.module) | 知乎域名规则 |
 | [zhihu-clean.js](scripts/zhihu-clean.js) | JSON 广告清理与内容净化 |
 | [zhihu-clean.test.js](tests/zhihu-clean.test.js) | 自动测试 |
 
 - **去广告**：广告接口、广告卡、推广字段。
 - **净化**：首页视频、当前问题回答流、会员内容、会员入口、界面精简。
-- **调试**：Debug 合集与独立路径模块提供，默认关闭；开启后记录过滤计数、解析错误与完整搜索响应。
-- **常驻**：域名与 QUIC 规则。完全停用时关闭插件；合集与独立模块择一启用。
+- **调试**：Debug 合集提供，默认关闭；开启后记录过滤计数、解析错误与完整搜索响应。
+- **常驻**：域名与 QUIC 规则。完全停用时关闭插件。
 - 云配置由去广告或净化启用。MITM：`zhihu.com, *.zhihu.com`。
 - 同一响应选择原生响应体 Rewrite 或响应脚本；Loon 优先执行命中的响应体 Rewrite。
 
@@ -99,7 +97,7 @@
 | 2026-10-29 | 1.1.2 / 插件 1.0.2 | 详情页按 `type=card` 一刀切删结构段，想法（pin）与回答正文的图文卡片连同图片一起被删 | 改为只删带广告标记的 card 段：`card_type` 命中 ad/ads/advert/commercial/promotion，或段内含 `adjson`、`ad_info`、`ad_zone_id`、`creative_id` 等 |
 | 2026-10-31 | 1.1.3 / 插件 1.0.14 | 开屏广告与首页彩蛋「又回来了」 | 日志证明是 Loon 证书丢失导致 `Mitm unavailable`（06:52 起），规则本身未退化；另外把 `launch_v2` / `real_time_launch_v2` / `sdk_launch` 与 `search_eggs` / `pull_refresh_search_eggs` 显式列出，避免通拦收窄时连带漏掉 |
 
-两次都属于「去广告规则误伤正文」，判定标准已经收窄为：**标记为广告才删，其余一律保留**。想法详情的图片若挂在非 card 段，仍需用 `Zhihu-Dump.module` 抓 `pins/v2/{id}` 响应再定位。
+两次都属于「去广告规则误伤正文」，判定标准已经收窄为：**标记为广告才删，其余一律保留**。想法详情的图片若挂在非 card 段，仍需打开 Debug 合集的「知乎-调试」抓 `pins/v2/{id}` 响应再定位。
 
 ### MITM 前置检查（先做，再谈规则）
 
@@ -129,4 +127,4 @@ git diff --check
 - 改动详情页结构段相关逻辑时，必须回归三类页面：回答详情、文章（`articles`）、想法（`pins/v2/{id}?single_content=1`）。想法是最近两次图片误伤的唯一暴露面。
 - 修改模板与源码后运行 `npm run build`；版本号第三位递增，脚本 URL 使用完整版本号刷新。独立路径模块按对应规则同步维护。
 - 开启调试后，`ZHCLEAN` 记录过滤计数，`removed` 合计字段和条目删除；`ZHSEARCH-META` / `ZHSEARCH-BODY` 记录完整搜索响应及请求 URL，按 `id`、`part` 拼接，每段 1200 字符。
-- 原始日志、抓包与证书留在本机。独立 `Zhihu-Dump*.module` 的知乎-调试默认关闭，开启后以 `ZHDUMP-*` 记录详情请求与完整响应；启用前检查其中的 Host 映射。
+- 原始日志、抓包与证书留在本机。Debug 合集的「知乎-调试」默认关闭，开启后以 `ZHSEARCH-*` 记录完整搜索响应。

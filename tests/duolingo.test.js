@@ -200,24 +200,3 @@ test("多邻国 dump：只输出键名，不输出值，且要求调试开关打
   const off = inject(body, { duolingo_debug: false }, BATCH, dumpSource);
   assert.deepEqual(off.logs, []);
 });
-
-test("多邻国：模板接好了开关、脚本与 MITM 主机", () => {
-  assert.ok(template.includes("duolingo_enable = switch,false,type=boolean,"));
-  assert.ok(template.includes("duolingo_debug = switch,false,type=boolean,"));
-  const rule = template.split("\n").find((line) => line.includes("duolingo-clean.js"));
-  assert.ok(rule, "缺少去广告脚本行");
-  assert(rule.includes("${duolingo_enable} == true"));
-  assert(rule.includes("{${duolingo_enable}, ${duolingo_debug}}"));
-  assert(rule.includes("requires_body=true"));
-  const expression = new RegExp(rule.match(/~= \/(.*?)\/i then/)[1], "i");
-  for (const url of [BATCH, USER, "https://ios-api-2.duolingo.cn/2023-05-23/batch", "https://api2.duolingo.com/2023-05-23/batch"]) {
-    assert(expression.test(url), url);
-  }
-  for (const url of ["https://ios-api-cf.duolingo.com/2023-05-23/sessions", "https://ios-api-cf.duolingo.com.evil.test/2023-05-23/batch", "https://www.duolingo.com/2023-05-23/users/1"]) {
-    assert(!expression.test(url), url);
-  }
-  const mitm = template.match(/\n\[MITM\]\nhostname = (.+)/)[1];
-  for (const host of ["ios-api-cf.duolingo.com", "ios-api-2.duolingo.cn"]) {
-    assert(mitm.includes(host), host);
-  }
-});

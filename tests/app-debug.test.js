@@ -117,42 +117,8 @@ test("Netease debug records request metadata and passes the request through", ()
   assert.deepEqual(logs.map(line => JSON.parse(line.slice(9))), [{ method: "POST", url: request.url }]);
 });
 
-test("all distributions declare default-off flags and pass only the owning debug argument", () => {
-  const modules = [
-    ["Zhihu-URL.module", ["zhihu"]], ["Taobao-URL.module", ["taobao"]],
-    ["NetEase-CloudMusic-URL.module", ["netease"]],
-    ["Pica-URL.module", ["pica"]],
-    ["Zhihu-Dump.module", ["zhihu"]], ["Zhihu-Dump-ghproxy.module", ["zhihu"]],
-  ];
-  for (const [file, apps] of [...plugins.map(file => [file, ["zhihu", "taobao", "netease", "pica", "amap", "missav", "jav", "duolingo"]]), ...modules]) {
-    const lines = fs.readFileSync(path.join(root, file), "utf8").split("\n");
-    for (const app of apps) {
-      assert.equal(lines.filter(line => line.startsWith(`${app}_debug = switch,false,type=boolean,`)).length, 1, file);
-    }
-    for (const line of lines.filter(line => line.includes("then script("))) {
-      const app = line.includes("Taobao-ads-clean.js") ? "taobao"
-        : line.includes("netease-debug.js") ? "netease"
-        : line.includes("pica-clean.js") ? "pica"
-        : line.includes("amap-dump.js") ? "amap"
-        : line.includes("missav-clean.js") ? "missav"
-        : line.includes("jav-clean.js") ? "jav"
-        : line.includes("duolingo-") ? "duolingo"
-        : "zhihu";
-      assert(line.includes('${' + app + '_debug}'), file);
-      const args = line.match(/, \{(.*?)\}\) with/)[1];
-      for (const other of ["zhihu", "taobao", "netease", "pica", "amap", "missav", "jav", "duolingo"].filter(name => name !== app)) assert(!args.includes(other + "_debug"), file);
-      const version = file.endsWith(".plugin") ? "1.0." : lines.find(line => line.startsWith("#!version=")).slice(10);
-      assert(line.includes("?v=" + version), file);
-      if (app === "netease" || app === "amap" || file.includes("Dump")) {
-        assert(line.startsWith(`request if \${${app}_debug} == true &&`) || line.startsWith(`response if \${${app}_debug} == true &&`), file);
-        if (app === "netease") assert(!line.includes("requires_body=true"), file);
-      }
-    }
-  }
-});
-
 test("Netease debug URL guard matches API hosts and excludes unrelated traffic", () => {
-  for (const file of [...plugins, "NetEase-CloudMusic-URL.module"]) {
+  for (const file of plugins) {
     const rule = fs.readFileSync(path.join(root, file), "utf8").split("\n").find(line => line.includes("then script(") && line.includes("netease-debug.js"));
     const expression = new RegExp(rule.match(/~= \/(.*?)\/i then/)[1], "i");
     for (const url of ["https://music.163.com/eapi/batch", "https://interface.music.163.com/api/song/detail", "https://music.163.com/xeapi/ad/loading/judge"]) assert(expression.test(url), file);

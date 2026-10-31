@@ -8,8 +8,8 @@ const vm = require("node:vm");
 const root = path.join(__dirname, "..");
 const read = (filename) => fs.readFileSync(path.join(root, filename), "utf8");
 
-const moduleLines = () => read("Xianyu-URL.module").split("\n");
-const activeLines = () => moduleLines().filter((line) => !line.trim().startsWith("#") && line.trim());
+const pluginLines = () => read("build/RedCognitio-Ads.plugin.tpl").split("\n");
+const activeLines = () => pluginLines().filter((line) => !line.trim().startsWith("#") && line.trim());
 
 function ruleFor(needle, kind = "jq") {
   const line = activeLines().find(
@@ -151,67 +151,7 @@ test("搜索结果剔除 bizType=ad 的条目并保留普通结果", () => {
   assert.equal(out.data.resultList[0].data.item.main.exContent.dislikeFeedback.clickParam.args.bizType, "item");
 });
 
-test("搜索发现接口的 MarketHotSpot 规则已随接口下线移除", () => {
-  assert(!read("Xianyu-URL.module").includes("MarketHotSpot"));
-});
-
 // ───────────────────────── 整段推广位与开关 ─────────────────────────
-
-test("所有规则只受单一去广告开关控制，不存在净化开关", () => {
-  const content = read("Xianyu-URL.module");
-  assert(!content.includes("xianyu_feed"), "净化开关应已移除");
-  assert(!content.includes("净化"), "不应残留净化文案");
-  for (const needle of ["idlecommerce\\.splash", "idlehome\\.home\\.nextfresh", "idlemtopsearch\\.search\\/", "idle\\.local\\.home\\/"]) {
-    assert(ruleFor(needle).includes("${xianyu_enable} == true"), needle);
-  }
-});
-
-test("模块只剔除广告卡，不裁剪推荐内容（无整段拒绝）", () => {
-  const rejects = activeLines().filter((line) => line.includes("reject_dict(") || line.includes("reject("));
-  assert.deepEqual(rejects, [], "去广告范围不包括整段推广位拒绝");
-  const active = activeLines().join("\n");
-  for (const api of ["recommend.list", "buy.feeds", "playboy.recommend", "user.strategy.list", "near.by.corner", "search.shade", "resultPrefixBar", "topList"]) {
-    assert(!active.includes(api), api);
-  }
-});
-
-test("竞价与激励视频接口保持不拦", () => {
-  const rejects = activeLines().filter((line) => line.startsWith("request "));
-  for (const api of ["adx.bid", "game.iaa.ads", "alimama.zz.ad.get"]) {
-    assert(!rejects.some((line) => line.includes(api)), api);
-  }
-});
-
-test("两个模块都拦截 QUIC，否则 MITM 规则静默失效", () => {
-  for (const filename of ["Xianyu-URL.module", "Xianyu-Domain.module"]) {
-    const content = read(filename);
-    assert(content.includes("AND,((DOMAIN-SUFFIX,goofish.com),(PROTOCOL,QUIC)),REJECT"), filename);
-    assert(content.includes("AND,((DOMAIN-SUFFIX,taobao.com),(PROTOCOL,QUIC)),REJECT"), filename);
-  }
-});
-
-test("域名模块只封广告域，不碰 mtop 网关与图片 CDN", () => {
-  const content = read("Xianyu-Domain.module");
-  for (const domain of ["pangolin-sdk-toutiao.com", "pglstatp-toutiao.com", "gdt.qq.com", "tanx.com"]) {
-    assert(content.includes(`DOMAIN-SUFFIX,${domain},REJECT-DICT`), domain);
-  }
-  const active = content.split("\n").filter((line) => !line.trim().startsWith("#"));
-  for (const forbidden of ["goofish.com,REJECT", "taobao.com,REJECT", "alicdn.com", "adash"]) {
-    assert(!active.some((line) => line.includes(forbidden)), forbidden);
-  }
-});
-
-test("MITM 只列域名，不写 %APPEND%（Surge 语法，Loon 不认）", () => {
-  for (const filename of ["Xianyu-URL.module", "Xianyu-Dump.module"]) {
-    const mitm = read(filename).match(/\[MITM\]\nhostname = (.+)/)[1];
-    assert(!mitm.includes("%APPEND%"), `${filename} 仍含 %APPEND%`);
-    assert(!mitm.includes("APPEND"), `${filename} 仍含 APPEND 字样`);
-  }
-  const hosts = read("Xianyu-URL.module").match(/\[MITM\]\nhostname = (.+)/)[1].split(/,\s*/);
-  for (const host of ["goofish.com", "*.goofish.com", "taobao.com", "*.taobao.com"]) {
-    assert(hosts.includes(host), host);
-  }
-});
 
 // ───────────────────────── 诊断脚本 ─────────────────────────
 
@@ -259,19 +199,4 @@ test("XYFEED 只报卡片类型与广告键，不回显正文", () => {
 test("XYFEED 遇到非 JSON 只报解析错误", () => {
   const logs = runScript("xianyu-feed-probe.js", { url: `${GW}mtop.taobao.idle.home.firstdata/5.0/`, body: "<html>" });
   assert.deepEqual(logs, [`XYFEED-PARSE-ERROR ${GW}mtop.taobao.idle.home.firstdata/5.0/`]);
-});
-
-test("诊断模块覆盖开屏、竞价与信息流三类接口", () => {
-  const content = read("Xianyu-Dump.module");
-  const urls = [
-    `${GW}mtop.taobao.idlecommerce.splash.ads/2.0/`,
-    `${GW}mtop.taobao.idlecommerce.splash.async.ads/1.0/`,
-    `${GW}mtop.taobao.idlecommerce.adx.bid/1.0/`,
-    `${GW}mtop.taobao.idle.home.firstdata/5.0/`,
-    `${GW}mtop.taobao.idlehome.home.nextfresh/4.0/`,
-    "https://h5api.m.goofish.com/gw/mtop.alimama.zz.ad.get/1.0/",
-  ];
-  const expressions = [...content.matchAll(/~= \/(.+?)\/i then script/g)].map((m) => new RegExp(m[1], "i"));
-  for (const url of urls) assert(expressions.some((re) => re.test(url)), url);
-  assert(!expressions.some((re) => re.test(`${GW}mtop.taobao.idle.item.recommend.list/1.0/`)));
 });

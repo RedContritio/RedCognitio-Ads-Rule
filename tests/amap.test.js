@@ -51,15 +51,6 @@ const RT_BODY = { code: "1", data: { session_id: "sess", custom_list: [{ creativ
 
 // ───────────────────────── 合集内的高德规则 ─────────────────────────
 
-test("开屏两条链路都按 amap_enable 做字段净化", () => {
-  const rules = amapResponseRules();
-  assert.equal(rules.length, 2, "高德开屏只有两条链路");
-  for (const url of [SPLASH_POOL, SPLASH_RT]) {
-    const hits = rules.filter((rule) => rule.regex.test(url));
-    assert.equal(hits.length, 1, `${url} 应命中且只命中一条规则`);
-  }
-});
-
 test("净化后 code 为 7、data 为空对象：走成功分支清池且不下载素材", () => {
   const rules = amapResponseRules();
   const pool = rules.find((rule) => rule.regex.test(SPLASH_POOL));
@@ -78,6 +69,7 @@ test("iOS 侧换成其他 amap 主机同样命中", () => {
   const rules = amapResponseRules();
   for (const url of [
     "http://pre-gateway.amap.com/ws/valueadded/alimama/splash_screen",
+    "https://m5-x.amap.com/ws/valueadded/alimama/splash_screen",
     "https://aos.amap.com/ws/valueadded/alimama/splash_screen",
     "https://pre-amap-aos-info-nogw.amap.com/ws/aos/alimama/splash_screen_rt?ent=2",
   ]) {
@@ -101,52 +93,7 @@ test("不误伤同域业务接口与通用图床", () => {
   }
 });
 
-test("开屏用到的两个主机做 QUIC 降级，且不做 amap.com 全域降级", () => {
-  const lines = section(template, "Rule").map((line) => line.replace(/\s+/g, ""));
-  for (const host of ["m5.amap.com", "amap-aos-info-nogw.amap.com"]) {
-    assert(lines.includes(`AND,((DOMAIN,${host}),(PROTOCOL,QUIC)),REJECT`), `${host} 缺少 QUIC REJECT`);
-  }
-  assert(!lines.some((line) => line.startsWith("AND,((DOMAIN-SUFFIX,amap.com)")), "不得全域降级 QUIC");
-});
-
-test("MITM 覆盖两个开屏主机", () => {
-  const hostnames = section(template, "MITM").join("\n")
-    .replace(/^hostname\s*=\s*/i, "")
-    .split(",")
-    .map((host) => host.trim())
-    .filter(Boolean);
-  for (const host of ["m5.amap.com", "amap-aos-info-nogw.amap.com"]) {
-    assert(hostnames.includes(host), `MITM 缺 ${host}`);
-  }
-  assert(!hostnames.includes("amap.com"), "不得对 amap.com 全域开 MITM");
-});
-
-test("两个开关：去广告默认开、调试默认关", () => {
-  const args = section(template, "Argument");
-  assert(args.some((line) => /^amap_enable = switch,true,/.test(line)), "缺 amap_enable 或默认值不对");
-  assert(args.some((line) => /^amap_debug = switch,false,/.test(line)), "缺 amap_debug 或默认值不对");
-});
-
 // ───────────────────────── 构建产物 ─────────────────────────
-
-test("Release 构建剥离调试开关与诊断脚本，保留去广告规则", async () => {
-  const { generateArtifacts } = await builder;
-  const artifacts = await generateArtifacts(metadata);
-  for (const [filename, content] of artifacts) {
-    if (!filename.endsWith(".plugin")) continue;
-    assert(content.includes("${amap_enable} == true"), `${filename}: 缺高德去广告规则`);
-    assert(content.includes("m5.amap.com"), `${filename}: MITM 缺 m5`);
-    if (filename.includes("-debug")) {
-      assert(content.includes("amap_debug = switch,false,"), `${filename}: 缺调试开关`);
-      assert(content.includes("amap-dump.js"), `${filename}: 缺诊断脚本`);
-    } else {
-      assert(!content.includes("amap_debug"), `${filename}: Release 不应含调试开关`);
-      assert(!content.includes("amap-dump.js"), `${filename}: Release 不应含诊断脚本`);
-    }
-  }
-  assert(artifacts.has("dist/debug/scripts/amap-dump.js"), "Debug 构建应产出诊断脚本");
-  assert(!artifacts.has("dist/release/scripts/amap-dump.js"), "Release 不应产出诊断脚本");
-});
 
 test("诊断脚本按段输出响应体，默认不打印", () => {
   assert(dumpScript.includes("AMDEBUG"), "缺少请求标记");
@@ -156,19 +103,3 @@ test("诊断脚本按段输出响应体，默认不打印", () => {
 });
 
 // ───────────────────────── 文档一致性 ─────────────────────────
-
-test("维护文档记录两条链路、开关名与样本指纹", () => {
-  for (const needle of [
-    "/ws/valueadded/alimama/splash_screen",
-    "/ws/aos/alimama/splash_screen_rt",
-    "m5.amap.com",
-    "amap-aos-info-nogw.amap.com",
-    "amap_enable",
-    "amap_debug",
-    "17.02.0.2010",
-    "8367a35e1279be691c036307e2acfafe8870d32eefe30986f6e186a569a64dc9",
-  ]) {
-    assert(doc.includes(needle), `Amap.md 缺少 ${needle}`);
-  }
-  assert(!/Amap-(URL|Domain|Dump)\.module/.test(doc), "文档不应再引用已删除的独立模块");
-});

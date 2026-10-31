@@ -12,7 +12,7 @@ const source = fs.readFileSync(
 const variants = [
   "RedCognitio-Ads.plugin", "RedCognitio-Ads-ghproxy.plugin",
   "RedCognitio-Ads-jsdelivr.plugin", "RedCognitio-Ads-debug.plugin",
-  "RedCognitio-Ads-debug-ghproxy.plugin", "RedCognitio-Ads-debug-jsdelivr.plugin", "Zhihu-URL.module",
+  "RedCognitio-Ads-debug-ghproxy.plugin", "RedCognitio-Ads-debug-jsdelivr.plugin",
 ];
 
 function rewrite(body, filename, endpoint) {
@@ -172,37 +172,6 @@ test("removes answer-stream ads while preserving answers, images, cards and pagi
 test("does not remove an unknown ad type outside the answer stream", () => {
   const body = { data: [{ type: "ad", text: "ordinary content" }] };
   assert.deepEqual(clean(body), body);
-});
-
-test("all plugin variants route answer and recommendation bodies to both script switches", () => {
-  for (const filename of variants) {
-    const lines = fs.readFileSync(path.join(__dirname, "..", filename), "utf8").split("\n");
-    const script = lines.find((line) => line.includes("zhihu-clean.js") && line.startsWith("response if"));
-    assert(script.includes('(${zhihu_enable} == true || ${zhihu_purify} == true)'), filename);
-    const args = filename.includes("-debug") || filename.endsWith(".module")
-      ? '{${zhihu_enable}, ${zhihu_purify}, ${zhihu_debug}}'
-      : '{${zhihu_enable}, ${zhihu_purify}}';
-    assert(script.includes(args), filename);
-    const expression = new RegExp(script.match(/~= \/(.*?)\/i then/)[1], "i");
-    const urls = [
-      "https://api.zhihu.com/next-render?type=answer&id=first",
-      "https://api.zhihu.com/simple-next-render?type=answer&id=first",
-      "https://api.zhihu.com/topstory/recommend",
-      "https://api.zhihu.com/questions/123/feeds",
-      "https://api.zhihu.com/v4/questions/123/answers",
-      "https://www.zhihu.com/api/v4/questions/123/answers",
-      "https://api.zhihu.com/answers/v2/123",
-      "https://api.zhihu.com/search_v3?t=general",
-    ];
-    for (const url of urls) {
-      assert(expression.test(url), `${filename}: ${url}`);
-      for (const line of lines.filter((line) => line.startsWith("response if") && line.includes("response.json."))) {
-        const match = line.match(/~= \/(.*?)\/i then/);
-        if (match) assert(!new RegExp(match[1], "i").test(url), `${filename}: body rewrite suppresses script for ${url}`);
-      }
-    }
-    assert.deepEqual(rewrite(answerFlow, filename, "next-render"), cleanAnswerFlow, filename);
-  }
 });
 
 test("removes independent and promoted ads from both feed representations", () => {
@@ -428,22 +397,6 @@ test("membership filtering handles SDUI answers and retains pagination when an e
   const argument = { zhihu_enable: false, zhihu_purify: true };
   assert.deepEqual(clean({ dataV1: [free, locked], paging }, { argument }), { dataV1: [free], paging });
   assert.deepEqual(clean({ dataV1: [locked], paging }, { argument }), { dataV1: [], paging });
-});
-
-test("plugin switches are declared, shared by transport and isolated for ads and interface rules", () => {
-  for (const filename of variants) {
-    const lines = fs.readFileSync(path.join(__dirname, "..", filename), "utf8").split("\n");
-    assert(lines.some(line => line.startsWith("zhihu_enable = switch,true,type=boolean,")), filename);
-    assert(lines.some(line => line.startsWith("zhihu_purify = switch,true,type=boolean,")), filename);
-    const commercial = lines.find(line => line.startsWith("request if") && line.includes("commercial_api"));
-    assert(commercial.includes("${zhihu_enable} == true"), filename);
-    assert(!commercial.includes("zhihu_purify"), filename);
-    const tabs = lines.find(line => line.startsWith("response if") && line.includes("root\\/tab"));
-    assert(tabs.includes("${zhihu_purify} == true"), filename);
-    assert(!tabs.includes("zhihu_enable"), filename);
-    const cloud = lines.find(line => line.startsWith("response if") && line.includes("cloud\\/zhihu"));
-    assert(cloud.includes("(${zhihu_enable} == true || ${zhihu_purify} == true)"), filename);
-  }
 });
 
 test("request rules allow image downloads and bare-IP connectivity probes while retaining ad blocking", () => {

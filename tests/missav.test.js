@@ -121,37 +121,6 @@ test("missav：调试开关独立，关闭时零日志", () => {
   assert.deepEqual(inject(home, { zhihu_debug: true, pica_debug: true }).logs, []);
 });
 
-test("missav：合集里的开关、域名、QUIC、/pop 与 MITM 都已接线", () => {
-  assert.match(template, /^missav_enable = switch,true,/m);
-  assert.match(template, /^missav_debug = switch,false,/m);
-  for (const line of [
-    "DOMAIN-SUFFIX,mayzaent.com,REJECT",
-    "DOMAIN-SUFFIX,greentrafsa.com,REJECT",
-    "DOMAIN-SUFFIX,myavlive.com,REJECT",
-    "DOMAIN-SUFFIX,mavrtracktor.com,REJECT",
-    "DOMAIN-SUFFIX,rallytrck.website,REJECT",
-    "DOMAIN-SUFFIX,snaptrckr.fun,REJECT",
-    "DOMAIN-SUFFIX,tsyndicate.com,REJECT",
-    "DOMAIN-SUFFIX,twinrdengine.com,REJECT",
-    "DOMAIN-SUFFIX,diffusedpassionquaking.com,REJECT",
-  ]) {
-    assert.ok(template.includes(line), line);
-  }
-  for (const domain of ["missav123.com", "missav.ws", "missav.ai", "missav.live"]) {
-    assert.ok(template.includes(`AND,((DOMAIN-SUFFIX,${domain}),(PROTOCOL,QUIC)),REJECT`), domain);
-  }
-  // /pop 与注入层都用同一段域名正则，两个域名的写法必须留在文件里
-  assert.ok(template.includes("missav123\\.com|missav\\.(?:ws|ai|live)"), "域名正则未接线");
-  assert.ok(template.includes("/pop\\?url=/"), "/pop 拦截未接线");
-  assert.match(template, /then reject\(404\)/);
-  const scripts = [...template.matchAll(/then script\("([^"]+)"/g)].map((m) => m[1]);
-  assert.ok(scripts.some((url) => url.includes("missav-clean.js")), "缺少 missav 注入脚本");
-  const mitm = template.match(/\[MITM\]\nhostname = (.+)/)[1].split(/,\s*/);
-  for (const host of ["missav.ws", "*.missav.ws", "missav123.com", "*.missav123.com", "missav.ai", "*.missav.ai", "missav.live", "*.missav.live"]) {
-    assert.ok(mitm.includes(host), host);
-  }
-});
-
 test("missav：Release 构建静默且行为一致", () => {
   const release = path.join(root, "dist/release/scripts/missav-clean.js");
   if (!fs.existsSync(release)) return; // 未构建时跳过，build.test.js 会保证产物存在

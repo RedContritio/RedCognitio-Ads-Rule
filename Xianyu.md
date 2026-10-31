@@ -160,47 +160,57 @@ else . end
 
 ## 安装
 
-Loon → 配置 → 模块 → 右上角 `+` → 从 URL 添加。国内直连 raw 不稳时用 jsDelivr 或 gh-proxy。
+闲鱼规则已并入合集插件，**装合集即覆盖，不另装模块**：
 
-| 模块 | 直连 | 备选 |
+1. Loon → 配置 → 插件 → 添加 `RedCognitio-Ads.plugin`（或 `-ghproxy` / `-jsdelivr` / Debug 同名文件）。
+2. 确认开关「闲鱼-去广告」为开；需要抓响应时改用 Debug 合集并打开「闲鱼-调试」。
+3. 确认 MITM 已开、CA 已信任，hostname 里有 `goofish.com` / `*.goofish.com`（插件已带）。
+
+### 装没装，用日志一行就能确认（2026-10-31）
+
+2026-10-31 那份 `2026-10-31 11_34_24.log` 里闲鱼一条规则都没生效——当时的合集还不含闲鱼，
+配置里也没有独立模块。用这份日志当反例，两条命令就能判定：
+
+| 判据 | 该日志里的值 | 含义 |
 |---|---|---|
-| `Xianyu-URL.module` | `https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/Xianyu-URL.module` | `https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/Xianyu-URL.module` |
-| `Xianyu-Domain.module` | `https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/Xianyu-Domain.module` | `https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/Xianyu-Domain.module` |
-| `Xianyu-Dump.module`（诊断，默认关） | `https://raw.githubusercontent.com/RedContritio/RedCognitio-Ads-Rule/main/Xianyu-Dump.module` | `https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/Xianyu-Dump.module` |
+| `Load plugin:` 行 | 只有「RedCognitio 去广告合集（Debug）」「…（ghproxy 镜像）」「AWAvenue Ads Rule」 | 没有闲鱼模块（当时必须另装） |
+| `Load MITM Domains` 列表 | 有 `*.taobao.com`，**没有** `goofish.com` / `*.goofish.com` | 闲鱼侧 MITM 未生效 |
+| `Load N rules. N scripts. N rewrites` | `1056 rules / 10 scripts / 41 rewrites` | 合集 Debug 构建当时的规模，闲鱼规则一条没进来 |
+| `idlecommerce` / `goofish` 字样 | 0 | 规则与流量都没有 |
 
-两个拦截模块可以同时启用；`Xianyu-Dump.module` 只在需要抓响应时临时开。合集插件与本模块都声明了 `taobao.com` 的 MITM，Loon 合并去重，可以共存。
+```sh
+grep -A40 "Load MITM Domains" ~/path/to/loon.log | grep -c goofish   # 0 → 闲鱼 MITM 没生效
+grep -c "idlecommerce" RedCognitio-Ads.plugin                        # 0 → 装的是旧版合集
+```
 
-## 版本策略
+## 规则归属
 
-闲鱼三个模块固定在 **0.1.x**：
+合集插件的 `[Argument]` / `[Rule]` / `[Rewrite]` / `[Script]` / `[MITM]` 里各有一段闲鱼内容：
 
-- 默认只递增最后一位构建号（0.1.0 → 0.1.1 → 0.1.2），用于措辞修正、正则微调、注释与文档同步。
-- 第二位（次版本号）只在**用户明确同意的功能升级**时才动，例如新增一个拦截面、增加一个开关。
-- 不允许未经确认就把规则面扩大或收窄——范围变更本身就是功能升级。
+| 位置 | 内容 |
+|---|---|
+| `[Argument]` | `xianyu_enable`（默认开）、`xianyu_debug`（默认关，仅 Debug 构建） |
+| `[Rule]` | `goofish.com` / `taobao.com` 的 QUIC 降级；穿山甲 / 优量汇 / TanX / pglstatp 域名拦截 |
+| `[Rewrite]` | 开屏池清空、信息流广告卡（`nextfresh` / `newitem.page` / `local.home`）、搜索广告（`idlemtopsearch.search`）共 5 条 |
+| `[Script]` | Debug 构建注入 `xianyu-debug.js` / `xianyu-dump.js` / `xianyu-feed-probe.js` |
+| `[MITM]` | `goofish.com`、`*.goofish.com` |
 
-## 模块
+诊断脚本：
 
-| 文件 | 版本 | 内容 |
-|---|---|---|
-| `Xianyu-URL.module` | 0.1.0 | QUIC 拦截、开屏响应清池、信息流/搜索广告卡剔除、调试开关、MITM（`goofish.com` + `taobao.com`） |
-| `Xianyu-Domain.module` | 0.1.0 | QUIC 拦截、穿山甲 / 优量汇 / TanX 域名拦截 |
-| `Xianyu-Dump.module` | 0.1.0 | 诊断用：广告接口请求/完整响应 + 信息流卡片结构，默认关闭 |
-| `scripts/xianyu-debug.js` | 0.1.0 | `XYDEBUG` 记录进入广告接口的请求方法与本 URL |
-| `scripts/xianyu-dump.js` | 0.1.0 | `XYDUMP` 按 1200 字符切段打印广告接口完整响应 |
-| `scripts/xianyu-feed-probe.js` | 0.1.0 | `XYFEED` 只输出卡片类型与广告相关键，不回显正文 |
-
-`Xianyu-URL.module` 只有**闲鱼-去广告**（`xianyu_enable`）一个开关。
+| 脚本 | 输出 |
+|---|---|
+| `scripts/xianyu-debug.js` | `XYDEBUG` 记录进入广告接口的请求方法与本 URL |
+| `scripts/xianyu-dump.js` | `XYDUMP` 按 1200 字符切段打印广告接口完整响应 |
+| `scripts/xianyu-feed-probe.js` | `XYFEED` 只输出卡片类型与广告相关键，不回显正文 |
 
 **范围只到去广告。** 社区的「净化」类规则——整段推广位拒绝（猜你喜欢、购买推荐、播放页推荐、策略位、同城角落、搜索底纹）、圈头白名单、顶栏精简——会让整块内容消失，超出「去广告」的预期，一律不纳入。判断标准只有一条：这张卡标记为广告就删，否则原样留着。
 
-合集尚未接入闲鱼：加入合集需要新增 `xianyu_enable` 开关并改 `tests/build.test.js` 的计数断言，等真机验证通过后再做。
-
 ## 验证方法
 
-1. `npm test`（`tests/xianyu.test.js` 覆盖开屏清池、异常响应直通、请求级拒绝缺席、同步/异步双覆盖、QUIC、域名白名单、诊断脚本）。
+1. `npm test`（`tests/xianyu.test.js` 覆盖开屏清池、异常响应直通、信息流/搜索广告卡过滤、诊断脚本）。
 2. 抓包二选一：
    - **WireGuard 全量**：`MITM_MODE=wireguard bash tools/start_mitm.sh xianyu-wg`，手机装 WireGuard App 导入打印出的配置。能抓到 anet 业务请求。
-   - **Loon 侧诊断**：启用 `Xianyu-Dump.module` 并打开「闲鱼-调试」，日志里看 `XYDUMP-*` / `XYFEED`。无需 Mac。
+   - **Loon 侧诊断**：装 Debug 合集并打开「闲鱼-调试」，日志里看 `XYDUMP-*` / `XYFEED`。无需 Mac。
 3. 冷启动 3 次，确认 `idlecommerce.splash.ads` 与 `.async.ads` 的实际 host、请求体 `dspList`、响应 `adMap` 结构。
 4. 装规则后清一次 App 缓存，再冷启动 3~5 次，确认开屏消失且首页、详情、搜索、消息、交易正常。
 5. 若开屏仍在：先看 `splash.ads` 是否命中 rewrite；再看是否只剩三方 SDK 直投（此时补域名段）。
@@ -283,7 +293,7 @@ Loon → 配置 → 模块 → 右上角 `+` → 从 URL 添加。国内直连 r
 
 ## 待办
 
-- 用 WireGuard 模式或 `Xianyu-Dump.module` 重抓一次，拿到 `splash.ads` / `nextfresh` 的真实请求参数与响应体，核对社区字段名（`cardType`、`cardEnum`、`bizType`）是否与 7.27 版一致。
+- 用 WireGuard 模式或 Debug 合集的「闲鱼-调试」重抓一次，拿到 `splash.ads` / `nextfresh` 的真实请求参数与响应体，核对社区字段名（`cardType`、`cardEnum`、`bizType`）是否与 7.27 版一致。
 - 装规则后重点看首页：广告卡是否消失、正常商品卡是否还在。本模块不动任何整段内容，若首页仍见广告，多半是卡片类型码变了，用 `XYFEED` 日志现场核对。
 - 抓包补全快手 / 倍孜 / Sigmob 投放域。
 - 确认信息流广告卡是随 feed 响应下发还是 `zz.ad.get` 单独取数，再决定是否做响应净化。

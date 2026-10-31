@@ -119,6 +119,7 @@ https://amap-aos-info-nogw.amap.com/ws/aos/alimama/splash_screen_rt?ent=2
 ```loon
 [Rule]
 AND,((DOMAIN,m5.amap.com),(PROTOCOL,QUIC)),REJECT
+AND,((DOMAIN,m5-x.amap.com),(PROTOCOL,QUIC)),REJECT
 AND,((DOMAIN,amap-aos-info-nogw.amap.com),(PROTOCOL,QUIC)),REJECT
 
 [Rewrite]
@@ -135,11 +136,11 @@ response if ${amap_enable} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9-]+\.)*am
 ### 4.2 开关与常驻规则的分工
 
 - `amap_enable` 只管两条响应规则。关掉开关，开屏恢复，其余规则不受影响。
-- 两条 QUIC 降级常驻、不受开关控制——QUIC 不能 MITM，不常驻则开关一开也不生效。只降级 `m5.amap.com` 与 `amap-aos-info-nogw.amap.com`，不动 `*.amap.com` 全域：`m5` 同时承载地图瓦片、检索、导航、账号，全域降级等于把整机高德流量从 h3 拉回 h2。
+- 三条 QUIC 降级常驻、不受开关控制——QUIC 不能 MITM，不常驻则开关一开也不生效。只降级 `m5.amap.com`、`m5-x.amap.com` 与 `amap-aos-info-nogw.amap.com`，不动 `*.amap.com` 全域：`m5` / `m5-x` 同时承载地图瓦片、检索、导航、账号，全域降级等于把整机高德流量从 h3 拉回 h2。
 
 ### 4.3 MITM 范围
 
-`[MITM]` 只追加 `m5.amap.com` 与 `amap-aos-info-nogw.amap.com`。若 iOS 走别的 AOS 主机（例如 `aos.amap.com`、`pre-gateway.amap.com`），响应规则会因为「没解密」静默不生效——§5 的核验就是查这个。补主机名不用改正则：两条正则都按 `*.amap.com` 后缀写。
+`[MITM]` 只追加 `m5.amap.com`、`m5-x.amap.com` 与 `amap-aos-info-nogw.amap.com`。`m5-x` 是 1.0.16 补的：iOS 17.01.x 把 AOS 批量请求挪到了这台机（见 §9）。若再换主机（例如 `m5-zb.amap.com`、`aos.amap.com`、`pre-gateway-x.amap.com`），响应规则会因为「没解密」静默不生效——§5 的核验就是查这个。补主机名不用改正则：两条正则都按 `*.amap.com` 后缀写。
 
 ### 4.4 为什么不封素材 CDN
 
@@ -147,12 +148,12 @@ response if ${amap_enable} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9-]+\.)*am
 
 ### 4.5 为什么不拆模块
 
-高德侧没有"广告域"可常驻：唯一能纯域名封的只有链路 2 那台信息专用域，链路 1 与业务同域，必须 MITM + 路径规则。为一条半规则单开 `.module` 只会多一份要跟合集同步的副本，所以并在合集里（对比：闲鱼、哔咔有独立广告服务器 / 独立广告域，拆出来才有意义）。
+高德侧没有"广告域"可常驻：唯一能纯域名封的只有链路 2 那台信息专用域，链路 1 与业务同域，必须 MITM + 路径规则。为一条半规则单开 `.module` 只会多一份要跟合集同步的副本，所以并在合集里；闲鱼、哔咔同样并进合集，仓库不再保留任何独立模块。
 
 ## 5. 部署与验证
 
 1. Loon → 配置 → 插件，安装 `RedCognitio-Ads*.plugin`，确认「高德地图-去广告」为开。
-2. 确认 MitM 已开启、CA 已信任，`m5.amap.com` / `amap-aos-info-nogw.amap.com` 在 MitM 列表里（插件已带）。
+2. 确认 MitM 已开启、CA 已信任，`m5.amap.com` / `m5-x.amap.com` / `amap-aos-info-nogw.amap.com` 在 MitM 列表里（插件已带）。
 3. 核验真实主机名（2026-10-29 实测已通过，以下保留为版本升级后的排查手段）：
    - **装 Debug 构建**，打开「高德地图-调试」，冷启动一次，Loon 日志里看 `AMDEBUG` 行（`AMDUMP-*` 是响应体）。
    - **Mac 侧代理**（能拿完整请求体与响应）：
@@ -187,7 +188,7 @@ response if ${amap_enable} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9-]+\.)*am
 
 | 位置 | 说明 |
 |---|---|
-| `build/RedCognitio-Ads.plugin.tpl` | 高德段落：`[Rule]` QUIC 降级、`[Rewrite]` 两条响应净化、`[Script]` 诊断、`[MITM]` 两个主机 |
+| `build/RedCognitio-Ads.plugin.tpl` | 高德段落：`[Rule]` QUIC 降级、`[Rewrite]` 两条响应净化、`[Script]` 诊断、`[MITM]` 三个主机 |
 | `scripts/amap-dump.js` | 诊断脚本，Debug 构建注入（`AMDEBUG` / `AMDUMP-*`） |
 | `tests/amap.test.js` | 响应净化 jq 程序、开关、MITM 覆盖与构建产物测试 |
 | `samples/amap/amap.apk` | 取证样本 |
@@ -230,7 +231,7 @@ response if ${amap_enable} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9-]+\.)*am
 | 来源 | 做法 | 与我们的差异 |
 |---|---|---|
 | [ddgksf2013 / 墨鱼 `amap.js`](https://github.com/ddgksf2013/Scripts)（jsjiami v7 混淆，[gddt.module](https://github.com/deezertidal/shadowrocket-rules) 用同一脚本） | 对 `splash_screen`：`item.setting.display_time = 0`，`item.creative[0].start_time = creative[0].end_time = 0x8585fb80`（2243454336，推到 2041 年，时间窗过滤直接失效）。对 AOCS：命中 `gd_notch_logo` / `home_business_position_config` / `his_input_tip` / `operation_layer` / `aiNative` / `ai_` / `_ai` 的模块值整体替换成 `{status:1,version:"",value:""}`。另有首页 `main-page`（`cardList`/`business_position`/`pull3.msgs`/`mapBizList`）、`msgbox/pull`、`promotion-web/resource`、`new_hotword`、`search/nearbyrec_smart` 的净化 | 它保留 ad 条目、仍会下载素材，只让条目"过期"；我们把 `data` 直接换成空对象，素材都不下载，并且借成功分支清池。它对 AOCS 的置空会让 `splashscreen` 回退默认值（`max_req_count=10`），反而是"更爱发请求"的方向 |
-| [gddt.module](https://github.com/deezertidal/shadowrocket-rules/blob/main/modules/gddt.module) | 上述脚本的 Surge 版；另用 `reject-200` / `reject-dict` 拒 `ws/boss/order_web/*_information`、`ws/asa/ads_attribution`、`ws/shield/scene/recommend`、`uploadimg/*.gif`、`ws/valueadded/weather`；MITM `*amap.com` 全量 | 全域 MITM 与流量级 reject 面太大；我们只开两个主机、只改两条响应 |
+| [gddt.module](https://github.com/deezertidal/shadowrocket-rules/blob/main/modules/gddt.module) | 上述脚本的 Surge 版；另用 `reject-200` / `reject-dict` 拒 `ws/boss/order_web/*_information`、`ws/asa/ads_attribution`、`ws/shield/scene/recommend`、`uploadimg/*.gif`、`ws/valueadded/weather`；MITM `*amap.com` 全量 | 全域 MITM 与流量级 reject 面太大；我们只开三个主机、只改两条响应 |
 | [李跳跳（LiTiaotiao）高德规则](https://github.com/wtwang1998/LiTiaotiao-Custom-Rules/blob/main/C/com/com.A/com.autonavi.minimap/readme.md) | 无障碍自动点击：`iv_close` 关更新弹窗、`msgbox_popup_clear` 关首页横幅 | 不碰开屏大图，只处理弹窗/横幅，与网络层互补 |
 | [静途 quietmap](https://modules.lsposed.org/module/io.github.yigenhuobah.quietmap/) | Xposed 模块，运行期改 UI | 需要 root，不适用于 iOS |
 
@@ -243,3 +244,79 @@ response if ${amap_enable} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9-]+\.)*am
 - 收益有限：改云控最多省掉一次请求，改响应同样让客户端不发第二次请求（池空 + 无素材），而实现成本差一个量级。
 
 结论：字段确实存在（§8.1 那六个），但用在响应层（§8.2）是投入产出比最高的位置，也就是现在这套。
+
+## 9. 2026-10-31 复发排查：AOS 批量请求迁到 `m5-x.amap.com`（iOS 17.01.1）
+
+**现象**：用户反馈「高德偶发开屏」。合集 1.0.14 规则未改动，MITM 也没有掉证书（与知乎那次回归不同）。
+
+日志：`2026-10-31 11_34_24.log`（31,794,766 B / 320,013 行，sha256 `9f3a404b…85c4`），
+Loon 3.5.3(1014) · iOS 27.0.1 · 高德 `AMapiPhone/17.01.1.2014`，区间 11:34:24 → 14:01:31。
+
+### 9.1 结论
+
+**链路 2 拦住了，链路 1 从没进过解密。** 池化请求 `/ws/valueadded/alimama/splash_screen` 在这份
+3 小时的日志里出现 **0 次**，而实时请求 `splash_screen_rt` 出现 1 次且被成功改写；同一时间
+`m5-x.amap.com` 有 **170 条连接**、全部 `url:(null)`（未解密）。池子被填满 → 下一次热切直接播缓存
+→ 表现为「偶发」。
+
+| 事实 | 日志证据 |
+|---|---|
+| MITM 正常 | `MITM enable: Current profile certificate loaded.`（11:34:24.135），`Match MITM host` 289 条，`Mitm unavailable` 0 条 |
+| 链路 2 被净化 | 12:24:07.992 `url:https://amap-aos-info-nogw.amap.com/ws/aos/alimama/splash_screen_rt?ent=2` → 12:24:08.189 `match rewrite snapshot:… id:40`（0 基编号 = 第 41 条 = `splash_screen_rt` 规则） |
+| 链路 1 从未解密 | 全文件 `valueadded/alimama` 0 次；`m5.amap.com` 解密到的 URL 只有 `bootevent`（13 条）与 `frogserver/aocs/updatable`（12 条） |
+| `m5-x.amap.com` 未解密 | 170 条 `Get tcp connection from tun (m5-x.amap.com:443)`，每条都是 `url:(null) sni:m5-x.amap.com protocol:3`；无一条 `Match MITM host` |
+| `m5-x` 是启动批量入口 | 连接按分钟聚集在四次前台：12:24（48）、12:38（36）、13:09（34）、13:21（21）；同一时刻 `m5.amap.com` 只有 1–5 条 |
+| 池化请求时间窗对得上 | 12:24:08.208 起 `m5-x` 连续建连，与链路 2 响应读毕（12:24:08.241）落在同一秒——两条链路是启动时并行发的 |
+
+### 9.2 为什么不怀疑频控
+
+`max_req_count` / `min_req_interval_second` / 「本地有当日妈妈数据」都会抑制请求（§3、§8.1），
+但这次日志里有 **四次前台**（12:24 冷启、12:38 / 13:09 / 13:21 热切），四次都出现了 `m5-x` 批量建连、
+四次都没有解密到池化请求——如果只是频控，冷启那次（12:24）必然会有一次明文请求。频控解释不了
+「0 次出现在已解密主机上、同时另一台 AOS 主机批量建连」这个组合。
+
+### 9.3 `m5-x` 的身份（静态取证）
+
+Android 17.02.0.2010 样本里，`defpackage/e02.java#c()` 是主机兜底表：
+
+```java
+a("aos.m5",   new String[]{"https://m5.amap.com/",   "http://maps.testing.amap.com/",  "https://pre-gateway.amap.com/"});
+a("aos.m5zb", new String[]{"https://m5-zb.amap.com/", "http://maps.testing.amap.com/",  "https://pre-gateway.amap.com/"});
+a("aos.xurl", new String[]{"https://m5-x.amap.com/",  "http://amaps.testing.amap.com/", "https://pre-gateway-x.amap.com/"});
+```
+
+`com/amap/bundle/blutils/app/ConfigerHelper.java` 的 `HOST_KEY_TO_STANDARD` 把配置键 `aosx_url`
+映射到 `aos.xurl`。`SplashScreenRequest.E` 拼的是 `AOS_URL_KEY`（→ `aos.m5`），所以 **Android 端池化
+仍在 `m5.amap.com`**；iOS 17.01.x 把 AOS 批量请求改走 `aosx_url`（`m5-x`），这是两端唯一的差异点，
+也解释了为什么 2026-10-29 那次 iOS 实测（App 更早版本）能抓到 `m5.amap.com/ws/valueadded/…`。
+
+`m5-x.amap.com` 与 `m5-zb.amap.com` 在 Android 包的 URL 兜底表里并列出现（`classes4.dex`），
+说明 `m5-x` 不是测试域名，而是正式 AOS 网关之一。
+
+### 9.4 本次改动（1.0.16）
+
+| 位置 | 改动 |
+|---|---|
+| `[MITM]` | `hostname` 增加 `m5-x.amap.com` |
+| `[Rule]` | 增加 `AND,((DOMAIN,m5-x.amap.com),(PROTOCOL,QUIC)),REJECT` |
+| `[Rewrite]` | 不动——两条正则本来就是 `*.amap.com` 后缀，解密后自动生效 |
+| `tests/amap.test.js` | QUIC / MITM 覆盖断言从 2 个主机扩到 3 个；URL 命中用例补 `https://m5-x.amap.com/ws/valueadded/alimama/splash_screen` |
+
+风险：`m5-x` 解密后承载的是地图批量请求（HTTP/1.1、无 ALPN），若高德对这台机单独做证书固定，
+连接会失败并在 `captures/passthrough.log` 留 `TLS` 错误。回滚方式：从 `[MITM]` 删掉该主机即可，
+其余规则不受影响。
+
+### 9.5 装好后的复核（一次冷启 + 一次热切）
+
+1. 冷启动高德，日志里应出现 `Match MITM host:m5-x.amap.com`，且至少一条
+   `url:https://m5-x.amap.com/ws/valueadded/alimama/splash_screen`。
+2. 同一次启动里该 URL 应跟着一条 `match rewrite`（池化规则，0 基编号 40）。
+3. 再热切一次（切后台再回前台），池化请求应再次出现且再次被改写；若此时仍出开屏，
+   说明展示读的是更早写盘的池子——连清两次冷启仍未干净，就把日志交回来查 `cacheAdInfo` 是否换了字段。
+
+### 9.6 仍然没排除的三条尾巴
+
+- `m5-zb.amap.com`（`aos.m5zb`）：本份日志只有 2 条连接，未解密。暂不开 MITM，观察是否增长。
+- `pre-gateway-x.amap.com`：`aos.xurl` 的备选主机，正常流量里不该出现；出现即说明主域被降级。
+- `amap-ocpx-online.amap.com` / `magellan.alimama.com`：OCPX 转化与阿里妈妈 SSP，开屏之外的位置在用，
+  与开屏展示无关，不动。
