@@ -105,7 +105,7 @@ ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo
 
 | 判据 | 日志里的值 | 含义 |
 |---|---|---|
-| `Load 1056 rules. 10 scripts. 41 rewrites.` | 41 rewrite + 10 script | 装的是 **1.0.14**；1.0.18 的 Debug 应为 **46 rewrite + 13 script** |
+| `Load 1056 rules. 10 scripts. 41 rewrites.` | 41 rewrite + 10 script | 装的是 **1.0.14**；Debug 的规模行应为 **46 rewrites / 14 scripts** |
 | `DUOLINGO-CLEAN` | **0** | `duolingo-clean.js` 一次都没执行 |
 | `duolingo_debug` 的 `DUODUMP` | **0** | 诊断脚本也没跑 |
 | rewrite 命中 id | `4,5,7,8,9,10,11,16,17,19,20,21,22,23,25,28,36,40`——全是知乎/淘宝/网易云/哔哩哔哩/高德，**没有多邻国那条** | `duolingo_enable == true` 这个前置条件没成立 |
@@ -142,7 +142,7 @@ ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo
 
 ### 6.4 下一步（一次课就够）
 
-1. 装 **1.0.19 Debug**，确认日志 `Load` 行变成 `46 rewrites / 13 scripts`（这一行就是版本指纹）。
+1. 装 **1.0.19 Debug**，确认日志 `Load` 行变成 `46 rewrites / 14 scripts`（这一行就是版本指纹）。
 2. 打开「多邻国-去广告」+「多邻国-调试」。
 3. 做一课到出插屏为止，把日志发回来。
 4. 日志里应有 `DUODUMP https://…/plus-promotions/ml-predictions/centralized-decision ["…"]`，拿到键名后再决定：
