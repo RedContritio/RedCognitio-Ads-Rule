@@ -386,6 +386,28 @@ test("membership filtering preserves ordinary discussion, author badges, empty m
   assert.deepEqual(clean({ data }, { url: "https://api.zhihu.com/next-render?type=answer", argument: { zhihu_enable: false, zhihu_purify: true } }), { data });
 });
 
+test("paid share is detected through percent-encoded SDUI action routes", () => {
+  const encoded = "route_url=https%3A%2F%2Foia.zhihu.com%2Fkm_paid_content%2Fshare%3Fkm_pst%3DAAA%26share_code%3DBBB";
+  const paid = { id: "paid-card", type: "ComponentCard", style: "card_padding_dynamic_GBK99A_V3",
+    action: { type: "Route", parameter: encoded },
+    extra: { business_ext_map: { contentType: "KM_PAID_CONTENT", media_type: "IMAGE_TEXT", deliver_type: "Normal" } },
+    children: [{ style: "text_recommend_title", text: "会员文章标题" }] };
+  const normal = { id: "normal-card", type: "ComponentCard",
+    action: { type: "Route", parameter: "route_url=https%3A%2F%2Fzhihu.com%2Fquestion%2F1%2Fanswer%2F2" },
+    children: [{ style: "text_recommend_title", text: "普通回答" }] };
+  const body = { data: [paid, normal], paging: { is_end: false } };
+  const url = "https://api.zhihu.com/topstory/recommend";
+  const logs = [];
+  assert.deepEqual(clean(body, { url, logs, argument: { zhihu_purify: true, zhihu_debug: true } }),
+    { data: [normal], paging: body.paging });
+  const feed = JSON.parse(logs.find(line => line.startsWith("ZHFEED ")).slice(7));
+  assert.deepEqual(feed.cards.map(card => [card.id, card.verdict]), [["paid-card", "dropped"], ["normal-card", "kept"]]);
+  assert.equal(feed.cards[0].action.type, "Route");
+  assert(feed.cards[0].action.parameter.startsWith("https://oia.zhihu.com/km_paid_content/share"));
+  assert.deepEqual(feed.cards[0].biz, { contentType: "KM_PAID_CONTENT", media: "IMAGE_TEXT", deliver: "Normal" });
+  assert.equal(feed.cards[1].links[0], "https://zhihu.com/question/1/answer/2");
+});
+
 test("feed diagnostics summarise each card so an unfiltered membership card can be identified", () => {
   const share = "https://oia.zhihu.com/km_paid_content/share?km_pst=AAA&share_code=BBB";
   const body = { data: [

@@ -109,15 +109,29 @@ function hasMembershipPrompt(node) {
 // 盐选 / 会员文章的分享落地页。卡片外形可能是普通 answer/article，
 // 只有链接稳定可辨：https://oia.zhihu.com/km_paid_content/share?km_pst=……&share_code=……
 // 只认「链接类字段」里的值，正文 content 里出现的同名字符串不算，避免误删引用该链接的回答。
+// 卡片的跳转目标有两种写法：直接的 url 字段，或 SDUI 的 action.parameter（形如
+// route_url=https%3A%2F%2F...，整条 URL 被百分号编码过）。所以匹配前先解码。
 const PAID_SHARE = /(?:oia\.zhihu\.com\/km_paid_content|km_paid_content\/share|\/km_paid_content\b)/i;
-const LINK_KEY = /(?:url|link|schema|href)$/i;
+const LINK_KEY = /(?:url|link|schema|href|parameter|route|target|jump|deeplink)$/i;
+
+function decodeLoose(value) {
+  let out = value;
+  for (let i = 0; i < 2 && /%[0-9a-f]{2}/i.test(out); i++) {
+    try {
+      out = decodeURIComponent(out);
+    } catch (e) {
+      break;
+    }
+  }
+  return out;
+}
 
 function hasPaidShare(node) {
   if (Array.isArray(node)) return node.some(hasPaidShare);
   if (!node || typeof node !== "object") return false;
   for (const [key, value] of Object.entries(node)) {
     if (typeof value === "string") {
-      if (LINK_KEY.test(key) && PAID_SHARE.test(value)) return true;
+      if (LINK_KEY.test(key) && PAID_SHARE.test(decodeLoose(value))) return true;
     } else if (value && typeof value === "object" && hasPaidShare(value)) return true;
   }
   return false;
@@ -136,8 +150,9 @@ function summarizeFeed(item, verdict, reason) {
     if (!node || typeof node !== "object") return;
     for (const [key, value] of Object.entries(node)) {
       if (typeof value === "string") {
-        if (LINK_KEY.test(key) && links.length < 6) {
-          links.push(value.length > 120 ? value.slice(0, 120) + "…" : value);
+        if (LINK_KEY.test(key) && links.length < 8) {
+          const decoded = decodeLoose(value).replace(/^route_url=/, "");
+          links.push(decoded.length > 120 ? decoded.slice(0, 120) + "…" : decoded);
         }
       } else if (value && typeof value === "object") {
         collect(value, depth + 1);
@@ -148,6 +163,11 @@ function summarizeFeed(item, verdict, reason) {
   const target = (item.target && typeof item.target === "object" && item.target) ||
     (item.object && typeof item.object === "object" && item.object) || {};
   const children = Array.isArray(item.children) ? item.children : [];
+  const action = item.action && typeof item.action === "object" ? item.action : {};
+  const biz = (item.extra && item.extra.business_ext_map) || {};
+  const template = children.map((child) => (child && child.style) || "")
+    .find((style) => style && style !== "divider_V_6_id" && style !== "divider_V_8_id" &&
+      style !== "divider_v_4_id" && style !== "text_recommend_title") || null;
   return {
     id: item.id === undefined ? target.id : item.id,
     type: item.type || null,
@@ -157,7 +177,14 @@ function summarizeFeed(item, verdict, reason) {
     keys: Object.keys(item).slice(0, 12),
     targetKeys: Object.keys(target).slice(0, 12),
     targetType: target.type || null,
-    children: children.slice(0, 6).map((child) => (child && (child.style || child.type)) || null),
+    template,
+    action: action.type ? { type: action.type, parameter: decodeLoose(String(action.parameter || "")).replace(/^route_url=/, "").slice(0, 140) } : null,
+    biz: {
+      contentType: biz.contentType || biz.content_type || null,
+      media: biz.media_type || null,
+      deliver: biz.deliver_type || null,
+    },
+    children: children.slice(0, 8).map((child) => (child && (child.style || child.type)) || null),
     links,
   };
 }

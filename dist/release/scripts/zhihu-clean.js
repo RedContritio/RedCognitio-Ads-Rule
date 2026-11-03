@@ -51,13 +51,23 @@ function hasMembershipPrompt(node) {
     return Array.isArray(node) ? node.some(hasMembershipPrompt) : !(!node || "object" != typeof node) && Object.values(node).some(hasMembershipPrompt);
 }
 
-const PAID_SHARE = /(?:oia\.zhihu\.com\/km_paid_content|km_paid_content\/share|\/km_paid_content\b)/i, LINK_KEY = /(?:url|link|schema|href)$/i;
+const PAID_SHARE = /(?:oia\.zhihu\.com\/km_paid_content|km_paid_content\/share|\/km_paid_content\b)/i, LINK_KEY = /(?:url|link|schema|href|parameter|route|target|jump|deeplink)$/i;
+
+function decodeLoose(value) {
+    let out = value;
+    for (let i = 0; i < 2 && /%[0-9a-f]{2}/i.test(out); i++) try {
+        out = decodeURIComponent(out);
+    } catch (e) {
+        break;
+    }
+    return out;
+}
 
 function hasPaidShare(node) {
     if (Array.isArray(node)) return node.some(hasPaidShare);
     if (!node || "object" != typeof node) return !1;
     for (const [key, value] of Object.entries(node)) if ("string" == typeof value) {
-        if (LINK_KEY.test(key) && PAID_SHARE.test(value)) return !0;
+        if (LINK_KEY.test(key) && PAID_SHARE.test(decodeLoose(value))) return !0;
     } else if (value && "object" == typeof value && hasPaidShare(value)) return !0;
     return !1;
 }

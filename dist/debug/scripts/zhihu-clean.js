@@ -51,23 +51,38 @@ function hasMembershipPrompt(node) {
     return Array.isArray(node) ? node.some(hasMembershipPrompt) : !(!node || "object" != typeof node) && Object.values(node).some(hasMembershipPrompt);
 }
 
-const PAID_SHARE = /(?:oia\.zhihu\.com\/km_paid_content|km_paid_content\/share|\/km_paid_content\b)/i, LINK_KEY = /(?:url|link|schema|href)$/i;
+const PAID_SHARE = /(?:oia\.zhihu\.com\/km_paid_content|km_paid_content\/share|\/km_paid_content\b)/i, LINK_KEY = /(?:url|link|schema|href|parameter|route|target|jump|deeplink)$/i;
+
+function decodeLoose(value) {
+    let out = value;
+    for (let i = 0; i < 2 && /%[0-9a-f]{2}/i.test(out); i++) try {
+        out = decodeURIComponent(out);
+    } catch (e) {
+        break;
+    }
+    return out;
+}
 
 function hasPaidShare(node) {
     if (Array.isArray(node)) return node.some(hasPaidShare);
     if (!node || "object" != typeof node) return !1;
     for (const [key, value] of Object.entries(node)) if ("string" == typeof value) {
-        if (LINK_KEY.test(key) && PAID_SHARE.test(value)) return !0;
+        if (LINK_KEY.test(key) && PAID_SHARE.test(decodeLoose(value))) return !0;
     } else if (value && "object" == typeof value && hasPaidShare(value)) return !0;
     return !1;
 }
 
 function summarizeFeed(item, verdict, reason) {
     const links = [], collect = (node, depth) => {
-        if (!(depth > 4 || links.length >= 6)) if (Array.isArray(node)) for (const value of node) collect(value, depth + 1); else if (node && "object" == typeof node) for (const [key, value] of Object.entries(node)) "string" == typeof value ? LINK_KEY.test(key) && links.length < 6 && links.push(value.length > 120 ? value.slice(0, 120) + "…" : value) : value && "object" == typeof value && collect(value, depth + 1);
+        if (!(depth > 4 || links.length >= 6)) if (Array.isArray(node)) for (const value of node) collect(value, depth + 1); else if (node && "object" == typeof node) for (const [key, value] of Object.entries(node)) if ("string" == typeof value) {
+            if (LINK_KEY.test(key) && links.length < 8) {
+                const decoded = decodeLoose(value).replace(/^route_url=/, "");
+                links.push(decoded.length > 120 ? decoded.slice(0, 120) + "…" : decoded);
+            }
+        } else value && "object" == typeof value && collect(value, depth + 1);
     };
     collect(item, 0);
-    const target = item.target && "object" == typeof item.target && item.target || item.object && "object" == typeof item.object && item.object || {}, children = Array.isArray(item.children) ? item.children : [];
+    const target = item.target && "object" == typeof item.target && item.target || item.object && "object" == typeof item.object && item.object || {}, children = Array.isArray(item.children) ? item.children : [], action = item.action && "object" == typeof item.action ? item.action : {}, biz = item.extra && item.extra.business_ext_map || {}, template = children.map(child => child && child.style || "").find(style => style && "divider_V_6_id" !== style && "divider_V_8_id" !== style && "divider_v_4_id" !== style && "text_recommend_title" !== style) || null;
     return {
         id: void 0 === item.id ? target.id : item.id,
         type: item.type || null,
@@ -77,7 +92,17 @@ function summarizeFeed(item, verdict, reason) {
         keys: Object.keys(item).slice(0, 12),
         targetKeys: Object.keys(target).slice(0, 12),
         targetType: target.type || null,
-        children: children.slice(0, 6).map(child => child && (child.style || child.type) || null),
+        template,
+        action: action.type ? {
+            type: action.type,
+            parameter: decodeLoose(String(action.parameter || "")).replace(/^route_url=/, "").slice(0, 140)
+        } : null,
+        biz: {
+            contentType: biz.contentType || biz.content_type || null,
+            media: biz.media_type || null,
+            deliver: biz.deliver_type || null
+        },
+        children: children.slice(0, 8).map(child => child && (child.style || child.type) || null),
         links
     };
 }
