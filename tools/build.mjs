@@ -13,7 +13,7 @@ const mirrors = [
 ];
 const commonScripts = ["zhihu-clean.js", "Taobao-ads-clean.js", "pica-clean.js", "missav-clean.js", "jav-clean.js", "duolingo-clean.js"];
 // 仅 Debug 构建注入的诊断脚本：Release 会把引用它们的 [Script] 行整行删掉。
-const debugOnlyScripts = ["netease-debug.js", "amap-dump.js", "duolingo-dump.js", "xianyu-debug.js", "xianyu-dump.js", "xianyu-feed-probe.js"];
+const debugOnlyScripts = ["netease-debug.js", "netease-ad-probe.js", "amap-dump.js", "duolingo-dump.js", "xianyu-debug.js", "xianyu-dump.js", "xianyu-feed-probe.js"];
 
 export function validateMetadata(metadata) {
   if (typeof metadata.version !== "string" || !/^1\.0\.(0|[1-9]\d*)$/.test(metadata.version)) {

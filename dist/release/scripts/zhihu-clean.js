@@ -51,9 +51,22 @@ function hasMembershipPrompt(node) {
     return Array.isArray(node) ? node.some(hasMembershipPrompt) : !(!node || "object" != typeof node) && Object.values(node).some(hasMembershipPrompt);
 }
 
+const PAID_SHARE = /(?:oia\.zhihu\.com\/km_paid_content|km_paid_content\/share|\/km_paid_content\b)/i, LINK_KEY = /(?:url|link|schema|href)$/i;
+
+function hasPaidShare(node) {
+    if (Array.isArray(node)) return node.some(hasPaidShare);
+    if (!node || "object" != typeof node) return !1;
+    for (const [key, value] of Object.entries(node)) if ("string" == typeof value) {
+        if (LINK_KEY.test(key) && PAID_SHARE.test(value)) return !0;
+    } else if (value && "object" == typeof value && hasPaidShare(value)) return !0;
+    return !1;
+}
+
 function isMemberOnly(item) {
     if (!item || "object" != typeof item) return !1;
-    const answer = item.target || item.object || item.answer || item.unify_content && item.unify_content.content_info || item, type = String(answer.type || answer.content_type || answer.producer || "").toLowerCase(), paid = parseObject(answer.paid_info);
+    const answer = item.target || item.object || item.answer || item.unify_content && item.unify_content.content_info || item;
+    if (hasPaidShare(item)) return !0;
+    const type = String(answer.type || answer.content_type || answer.producer || "").toLowerCase(), paid = parseObject(answer.paid_info);
     if (!0 === answer.has_purchased || !0 === answer.is_purchased || !0 === answer.is_free || paid && !0 === paid.has_purchased) return !1;
     if ("knowledge_ad" === item.type && ("knowledge_vip" === answer.card_type || /^(?:album_paid_column|paid_column_chapter)$/.test(answer.commodity_type || ""))) return !0;
     if (answer.label_info && "purchase_required" === answer.label_info.type) return !0;

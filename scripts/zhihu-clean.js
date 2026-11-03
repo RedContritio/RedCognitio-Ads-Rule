@@ -106,10 +106,67 @@ function hasMembershipPrompt(node) {
   return Object.values(node).some(hasMembershipPrompt);
 }
 
+// 盐选 / 会员文章的分享落地页。卡片外形可能是普通 answer/article，
+// 只有链接稳定可辨：https://oia.zhihu.com/km_paid_content/share?km_pst=……&share_code=……
+// 只认「链接类字段」里的值，正文 content 里出现的同名字符串不算，避免误删引用该链接的回答。
+const PAID_SHARE = /(?:oia\.zhihu\.com\/km_paid_content|km_paid_content\/share|\/km_paid_content\b)/i;
+const LINK_KEY = /(?:url|link|schema|href)$/i;
+
+function hasPaidShare(node) {
+  if (Array.isArray(node)) return node.some(hasPaidShare);
+  if (!node || typeof node !== "object") return false;
+  for (const [key, value] of Object.entries(node)) {
+    if (typeof value === "string") {
+      if (LINK_KEY.test(key) && PAID_SHARE.test(value)) return true;
+    } else if (value && typeof value === "object" && hasPaidShare(value)) return true;
+  }
+  return false;
+}
+
+// 推荐流卡片摘要（仅调试）：把「这张卡长什么样、为什么留/删」压成一行，
+// 用来判断没被删掉的会员卡到底把链接放在哪个字段。不打完整 body。
+function summarizeFeed(item, verdict, reason) {
+  const links = [];
+  const collect = (node, depth) => {
+    if (depth > 4 || links.length >= 6) return;
+    if (Array.isArray(node)) {
+      for (const value of node) collect(value, depth + 1);
+      return;
+    }
+    if (!node || typeof node !== "object") return;
+    for (const [key, value] of Object.entries(node)) {
+      if (typeof value === "string") {
+        if (LINK_KEY.test(key) && links.length < 6) {
+          links.push(value.length > 120 ? value.slice(0, 120) + "…" : value);
+        }
+      } else if (value && typeof value === "object") {
+        collect(value, depth + 1);
+      }
+    }
+  };
+  collect(item, 0);
+  const target = (item.target && typeof item.target === "object" && item.target) ||
+    (item.object && typeof item.object === "object" && item.object) || {};
+  const children = Array.isArray(item.children) ? item.children : [];
+  return {
+    id: item.id === undefined ? target.id : item.id,
+    type: item.type || null,
+    style: item.style || null,
+    verdict,
+    reason: reason || null,
+    keys: Object.keys(item).slice(0, 12),
+    targetKeys: Object.keys(target).slice(0, 12),
+    targetType: target.type || null,
+    children: children.slice(0, 6).map((child) => (child && (child.style || child.type)) || null),
+    links,
+  };
+}
+
 function isMemberOnly(item) {
   if (!item || typeof item !== "object") return false;
   const answer = item.target || item.object || item.answer ||
     (item.unify_content && item.unify_content.content_info) || item;
+  if (hasPaidShare(item)) return true;
   const type = String(answer.type || answer.content_type || answer.producer || "").toLowerCase();
   const paid = parseObject(answer.paid_info);
   if (answer.has_purchased === true || answer.is_purchased === true ||
@@ -179,11 +236,18 @@ function scrub(node, state) {
 
 function handle(body) {
   const state = { removed: 0, restricted: 0, videos: 0 };
+  const feedProbes = debug && FEED_URL.test(url) ? [] : null;
   if (purify && body && (FEED_URL.test(url) || NEXT_RENDER_URL.test(url) || QUESTION_URL.test(url) || SEARCH_URL.test(url))) {
     for (const key of ["data", "dataV1"]) {
       if (!Array.isArray(body[key])) continue;
       const before = body[key].length;
-      body[key] = body[key].filter((item) => !isMemberOnly(item));
+      body[key] = body[key].filter((item) => {
+        const member = isMemberOnly(item);
+        if (feedProbes && item && typeof item === "object") {
+          feedProbes.push(summarizeFeed(item, member ? "dropped" : "kept", member ? "member_only" : ""));
+        }
+        return !member;
+      });
       state.removed += before - body[key].length;
       state.restricted += before - body[key].length;
     }
@@ -261,6 +325,11 @@ function handle(body) {
       });
     }
   }
+
+  if (feedProbes) console.log("ZHFEED " + JSON.stringify({
+    url: url.split("?")[0],
+    cards: feedProbes.slice(0, 12),
+  }));
 
   if (debug) console.log(
     "ZHCLEAN " +

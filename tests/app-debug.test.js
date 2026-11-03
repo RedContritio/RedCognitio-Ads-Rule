@@ -31,6 +31,7 @@ test("debug is default-off, accepts object and JSON arguments and stays isolated
     ["zhihu-clean.js", "zhihu_debug", "https://api.zhihu.com/search_v3", '{"data":[]}'],
     ["Taobao-ads-clean.js", "taobao_debug", "https://poplayer.template.alibaba.com/test.json", '{"enable":true}'],
     ["netease-debug.js", "netease_debug", "https://music.163.com/eapi/batch", ""],
+    ["netease-ad-probe.js", "netease_debug", "https://music.163.com/eapi/ad/config", '{"code":200,"data":{"enable":true}}'],
     ["zhihu-dump.js", "zhihu_debug", "https://api.zhihu.com/answers/v2/123", '{"id":123}'],
     ["zhihu-dump-req.js", "zhihu_debug", "https://api.zhihu.com/answers/v2/123", ""],
   ];
@@ -115,6 +116,50 @@ test("Netease debug records request metadata and passes the request through", ()
   const { result, logs } = run("netease-debug.js", { netease_debug: true }, request, "");
   assert.deepEqual(result, {});
   assert.deepEqual(logs.map(line => JSON.parse(line.slice(9))), [{ method: "POST", url: request.url }]);
+});
+
+test("Netease ad probe reports response shape and never rewrites it", () => {
+  const body = { code: 200, data: {
+    enable: true, interval: 30, prefetch: { ttl: 345600, wifiOnly: true }, list: [{ id: 1 }, { id: 2 }],
+    nested: { a: { b: { c: "deep" } } },
+  } };
+  const request = { method: "POST", url: "https://music.163.com/eapi/ad/config" };
+  const { result, logs } = run("netease-ad-probe.js", { netease_debug: true }, request, JSON.stringify(body));
+  assert.deepEqual(result, {});
+  assert.equal(logs.length, 1);
+  const probe = JSON.parse(logs[0].slice("NCMPROBE ".length));
+  assert.equal(probe.url, request.url);
+  assert.deepEqual(probe.keys, ["code", "data"]);
+  assert.equal(probe.shape.data.enable, true);
+  assert.deepEqual(probe.shape.data.list, { $array: 2, $first: "<object>" });
+  assert.equal(probe.shape.data.nested.a, "<object>");
+  const encrypted = run("netease-ad-probe.js", { netease_debug: true }, request, "\u0001\u0002binary");
+  assert.deepEqual(encrypted.result, {});
+  assert(encrypted.logs[0].startsWith("NCMPROBE-RAW "));
+});
+
+test("Netease ad probe route is debug-only and limited to ad configuration endpoints", () => {
+  for (const file of plugins) {
+    const content = fs.readFileSync(path.join(root, file), "utf8");
+    const rules = content.split("\n").filter(line => line.includes("netease-ad-probe.js"));
+    assert.equal(rules.length, 1, file);
+    const expression = new RegExp(rules[0].match(/~= \/(.*?)\/i then/)[1], "i");
+    for (const url of [
+      "https://music.163.com/eapi/ad/config",
+      "https://music.163.com/api/ad/commonconfig?x=1",
+      "https://interface.music.163.com/xeapi/ad/loading/judge",
+      "https://music.163.com/api/ad/prefetch/select",
+    ]) assert(expression.test(url), `${file}: ${url}`);
+    for (const url of [
+      "https://music.163.com/api/song/detail",
+      "https://music.163.com/eapi/batch",
+      "https://music.163.com/api/ad/listening/task",
+      "https://p1.music.126.net/cover.jpg",
+      "https://music.163.com.evil.test/eapi/ad/config",
+    ]) assert(!expression.test(url), `${file}: ${url}`);
+  }
+  const release = fs.readFileSync(path.join(root, "RedCognitio-Ads.plugin"), "utf8");
+  assert(!release.includes("netease-ad-probe.js"));
 });
 
 test("Netease debug URL guard matches API hosts and excludes unrelated traffic", () => {

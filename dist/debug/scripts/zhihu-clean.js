@@ -51,9 +51,42 @@ function hasMembershipPrompt(node) {
     return Array.isArray(node) ? node.some(hasMembershipPrompt) : !(!node || "object" != typeof node) && Object.values(node).some(hasMembershipPrompt);
 }
 
+const PAID_SHARE = /(?:oia\.zhihu\.com\/km_paid_content|km_paid_content\/share|\/km_paid_content\b)/i, LINK_KEY = /(?:url|link|schema|href)$/i;
+
+function hasPaidShare(node) {
+    if (Array.isArray(node)) return node.some(hasPaidShare);
+    if (!node || "object" != typeof node) return !1;
+    for (const [key, value] of Object.entries(node)) if ("string" == typeof value) {
+        if (LINK_KEY.test(key) && PAID_SHARE.test(value)) return !0;
+    } else if (value && "object" == typeof value && hasPaidShare(value)) return !0;
+    return !1;
+}
+
+function summarizeFeed(item, verdict, reason) {
+    const links = [], collect = (node, depth) => {
+        if (!(depth > 4 || links.length >= 6)) if (Array.isArray(node)) for (const value of node) collect(value, depth + 1); else if (node && "object" == typeof node) for (const [key, value] of Object.entries(node)) "string" == typeof value ? LINK_KEY.test(key) && links.length < 6 && links.push(value.length > 120 ? value.slice(0, 120) + "…" : value) : value && "object" == typeof value && collect(value, depth + 1);
+    };
+    collect(item, 0);
+    const target = item.target && "object" == typeof item.target && item.target || item.object && "object" == typeof item.object && item.object || {}, children = Array.isArray(item.children) ? item.children : [];
+    return {
+        id: void 0 === item.id ? target.id : item.id,
+        type: item.type || null,
+        style: item.style || null,
+        verdict,
+        reason: reason || null,
+        keys: Object.keys(item).slice(0, 12),
+        targetKeys: Object.keys(target).slice(0, 12),
+        targetType: target.type || null,
+        children: children.slice(0, 6).map(child => child && (child.style || child.type) || null),
+        links
+    };
+}
+
 function isMemberOnly(item) {
     if (!item || "object" != typeof item) return !1;
-    const answer = item.target || item.object || item.answer || item.unify_content && item.unify_content.content_info || item, type = String(answer.type || answer.content_type || answer.producer || "").toLowerCase(), paid = parseObject(answer.paid_info);
+    const answer = item.target || item.object || item.answer || item.unify_content && item.unify_content.content_info || item;
+    if (hasPaidShare(item)) return !0;
+    const type = String(answer.type || answer.content_type || answer.producer || "").toLowerCase(), paid = parseObject(answer.paid_info);
     if (!0 === answer.has_purchased || !0 === answer.is_purchased || !0 === answer.is_free || paid && !0 === paid.has_purchased) return !1;
     if ("knowledge_ad" === item.type && ("knowledge_vip" === answer.card_type || /^(?:album_paid_column|paid_column_chapter)$/.test(answer.commodity_type || ""))) return !0;
     if (answer.label_info && "purchase_required" === answer.label_info.type) return !0;
@@ -103,12 +136,15 @@ if (removeAds || purify) {
             removed: 0,
             restricted: 0,
             videos: 0
-        };
+        }, feedProbes = debug && FEED_URL.test(url) ? [] : null;
         if (purify && body && (FEED_URL.test(url) || NEXT_RENDER_URL.test(url) || QUESTION_URL.test(url) || SEARCH_URL.test(url))) for (const key of [ "data", "dataV1" ]) {
             if (!Array.isArray(body[key])) continue;
             const before = body[key].length;
-            body[key] = body[key].filter(item => !isMemberOnly(item)), state.removed += before - body[key].length,
-            state.restricted += before - body[key].length;
+            body[key] = body[key].filter(item => {
+                const member = isMemberOnly(item);
+                return feedProbes && item && "object" == typeof item && feedProbes.push(summarizeFeed(item, member ? "dropped" : "kept", member ? "member_only" : "")),
+                !member;
+            }), state.removed += before - body[key].length, state.restricted += before - body[key].length;
         }
         if (removeAds && scrub(body, state), NEXT_RENDER_URL.test(url) && body && Array.isArray(body.data) && (body.data = body.data.filter(item => !item || "object" != typeof item || (removeAds && "ad" === item.type ? (state.removed++,
         !1) : (removeAds && "adjson" in item && (delete item.adjson, state.removed++), !0)))),
@@ -139,7 +175,10 @@ if (removeAds || purify) {
             }
             return !0;
         }));
-        debug && console.log("ZHCLEAN " + JSON.stringify({
+        feedProbes && console.log("ZHFEED " + JSON.stringify({
+            url: url.split("?")[0],
+            cards: feedProbes.slice(0, 12)
+        })), debug && console.log("ZHCLEAN " + JSON.stringify({
             url: url.split("?")[0],
             removed: state.removed,
             restricted_removed: state.restricted,

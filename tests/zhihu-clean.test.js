@@ -386,6 +386,55 @@ test("membership filtering preserves ordinary discussion, author badges, empty m
   assert.deepEqual(clean({ data }, { url: "https://api.zhihu.com/next-render?type=answer", argument: { zhihu_enable: false, zhihu_purify: true } }), { data });
 });
 
+test("feed diagnostics summarise each card so an unfiltered membership card can be identified", () => {
+  const share = "https://oia.zhihu.com/km_paid_content/share?km_pst=AAA&share_code=BBB";
+  const body = { data: [
+    { type: "answer", id: "kept-1", target: { type: "answer", id: 1, url: "https://www.zhihu.com/question/1/answer/1" } },
+    { type: "answer", id: "drop-1", target: { type: "answer", id: 2, link: { url: share } } },
+  ], paging: { is_end: false } };
+  const url = "https://api.zhihu.com/topstory/recommend";
+  const logs = [];
+  const kept = clean(body, { url, logs, argument: { zhihu_purify: true, zhihu_debug: true } });
+  assert.deepEqual(kept, { data: [body.data[0]], paging: body.paging });
+  const feed = JSON.parse(logs.find(line => line.startsWith("ZHFEED ")).slice(7));
+  assert.equal(feed.url, url);
+  assert.deepEqual(feed.cards.map(card => [card.id, card.verdict, card.reason]), [
+    ["kept-1", "kept", null],
+    ["drop-1", "dropped", "member_only"],
+  ]);
+  assert.deepEqual(feed.cards[0].links, ["https://www.zhihu.com/question/1/answer/1"]);
+  assert.deepEqual(feed.cards[1].links, [share]);
+  assert(feed.cards[0].keys.includes("target"));
+  const quiet = [];
+  clean(body, { url, logs: quiet, argument: { zhihu_purify: true } });
+  assert(!quiet.some(line => line.startsWith("ZHFEED")));
+});
+
+test("feed drops paid-content share cards but keeps answers that merely quote the link", () => {
+  const share = "https://oia.zhihu.com/km_paid_content/share?km_pst=3AYYrJmn7f5SE5cVu&share_code=VuFVcaaA3jdO&utm_psn=2100932556011188460";
+  const wrapped = { type: "answer", target: { type: "answer", link: { url: share }, title: "会员文章" } };
+  const nested = { type: "ComponentCard", id: "card", children: [
+    { type: "answer", url: "https://www.zhihu.com/question/1/answer/2" },
+    { type: "answer", target: { link: { url: share } } },
+  ] };
+  const quoted = { type: "answer", target: {
+    type: "answer", content: "这条回答里贴了 " + share + " 的原文", url: "https://www.zhihu.com/question/1/answer/3",
+  } };
+  const normal = { type: "answer", target: {
+    type: "answer", url: "https://www.zhihu.com/question/1/answer/4", content: "普通回答",
+  } };
+  const body = { data: [wrapped, nested, quoted, normal], paging: { is_end: false } };
+  const url = "https://api.zhihu.com/topstory/recommend";
+  const logs = [];
+  const kept = clean(body, { url, logs, argument: {
+    zhihu_enable: false, zhihu_purify: true, zhihu_debug: true,
+  } });
+  assert.deepEqual(kept, { data: [quoted, normal], paging: body.paging });
+  const summary = JSON.parse(logs.find(line => line.startsWith("ZHCLEAN ")).slice(8));
+  assert.equal(summary.restricted_removed, 2);
+  assert.deepEqual(clean(body, { url, argument: { zhihu_purify: false } }), body);
+});
+
 test("membership filtering handles SDUI answers and retains pagination when an entire page is restricted", () => {
   const free = { type: "sdui", unify_content: { content_info: {
     content_type: "ANSWER", paid_info: { has_purchased: true },
@@ -658,6 +707,30 @@ test("network rewrite explicitly disables HTTPDNS variants and retains unrelated
     }, filename);
     assert.deepEqual(result.data.configs[4], entries[4], filename);
     assert.equal(result.data.other, body.data.other, filename);
+  }
+});
+
+test("cloud config disables ad preload switches so a Loon-off window cannot prefetch creatives", () => {
+  const entries = [
+    { configKey: "ad_resource_preload", status: true, configVersion: "20261022.17.00.47422", configValue: null },
+    { configKey: "check_preload_ad", status: true, configVersion: "20261022.17.00.47422", configValue: null },
+    { configKey: "ad_optimize_Preload", status: true, configVersion: "20261022.17.00.47422", configValue: null },
+    { configKey: "feed_prefetch", status: true, configVersion: "20261022.17.00.47422", configValue: 0 },
+    { configKey: "ad_cache_clear", status: true, configVersion: "20261022.17.00.47422", configValue: null },
+    { configKey: "preload_scene", status: true, configVersion: "20261022.17.00.47422", configValue: { recommend: true } },
+  ];
+  const body = { data: { configs: entries, etag: "W/keep" } };
+  for (const filename of variants) {
+    const result = rewrite(body, filename, "cloud");
+    assert.equal(result.data.configs.length, entries.length, filename);
+    for (const item of result.data.configs.slice(0, 4)) {
+      assert.equal(item.status, false, `${filename}: ${item.configKey}`);
+      assert.equal(item.configVersion, "20261024.03.30.00001", `${filename}: ${item.configKey}`);
+    }
+    // ad_cache_clear 是「清理行为」，关掉它等于放任缓存堆积，不能一起置 false
+    assert.deepEqual(result.data.configs[4], entries[4], `${filename}: ad_cache_clear`);
+    assert.deepEqual(result.data.configs[5], entries[5], `${filename}: preload_scene`);
+    assert.equal(result.data.etag, "W/keep", filename);
   }
 });
 

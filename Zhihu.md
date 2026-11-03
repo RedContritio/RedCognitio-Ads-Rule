@@ -37,7 +37,7 @@
 
 | 目标 | 开关 / 处理 | 来源 | 验证 |
 |---|---|---|---|
-| `/api/cloud/zhihu/config/all` | 任一；关闭 HTTPDNS、备用 IP、QUIC 配置，保留其他配置 | 包分析、参考实现、本机 | 自动测试、真实字段核对 |
+| `/api/cloud/zhihu/config/all` | 任一；关闭 HTTPDNS、备用 IP、QUIC 配置，并关闭广告预下载开关（`ad_resource_preload`、`check_preload_ad`、`ad_optimize_Preload`、`feed_prefetch`），保留其他配置与 `etag` | 包分析、参考实现、本机 | 自动测试、真实字段核对 |
 | `/commercial_api/` | 去广告；`200 + {}`，覆盖开屏、底部等广告位 | 包分析、参考实现、本机 | 真机确认、真实回放 |
 | `/commercial_api/(launch_v2|real_time_launch_v2|sdk_launch)` | 去广告；`200 + {}`，开屏显式冗余 | 包分析（dex 字符串） | 静态参考 |
 | `/commercial_api/(search_eggs|pull_refresh_search_eggs)` | 去广告；`200 + {}`，首页搜索框 / 下拉刷新彩蛋显式冗余 | 包分析（dex 字符串） | 静态参考 |
@@ -69,7 +69,7 @@
 | 详情广告位 | 去广告；删 `third_business` 与带广告标记的 card 段（`card_type` 命中 ad/commercial/promotion，或段内含 `adjson`/`ad_zone_id` 等） | 参考实现、本机 | 自动测试；真实 `reward_tail_truncate` 卡片保留 |
 | 正文图片与大图 | 保留图片结构段、图片地址、原图地址与尺寸；`card` 段不再无条件删除 | 本机 | 真实响应回放；2026-10-29 修复想法（pin）详情图片被整段删掉的问题 |
 | 首页视频 | 净化；按视频类型及组件识别，保留普通图片和回答详情视频 | 哲也、用户需求 | 自动测试 |
-| 会员受限列表项 | 净化；购买状态、`purchase_required`、会员提示及 `KfeCollection-PurchaseBtn`；显式免费、已购优先保留 | 包分析、用户需求 | 自动测试 |
+| 会员受限列表项 | 净化；购买状态、`purchase_required`、会员提示、`KfeCollection-PurchaseBtn`，以及链接类字段里的盐选落地页（`oia.zhihu.com/km_paid_content/share`）；显式免费、已购、正文里只是引用该链接的回答保留 | 包分析、用户需求、本机 | 自动测试 |
 | 课程、盐选小说商品卡 | 净化；外层 `knowledge_ad`，内层 `knowledge_vip` 或 `album_paid_column` / `paid_column_chapter` 商品类型 | 本机 | 真机确认；20 项真实响应移除 4 张商品卡 |
 | 界面字段 | 净化；详情删 `float_search_word`、`interaction_bar_plugins`、`ring_info`，首页删 `id=ring` 子项，问题删 `roundtable_info`，搜索删 `pendant` | 参考实现、本地精简 | 详情 / 子项 / 搜索自动测试；圆桌字段为代码核对 |
 
@@ -96,8 +96,22 @@
 | 2026-10-25 | 1.1.1 | 裸 IP 预取脚本把 `http://<IP>/` 探测回成 `{}`，图片 CDN 被判不可用，正文图不显示 | 删除 `zhihu-ad-preload.js` 与该路由，裸 IP 探测恢复直通 |
 | 2026-10-29 | 1.1.2 / 插件 1.0.2 | 详情页按 `type=card` 一刀切删结构段，想法（pin）与回答正文的图文卡片连同图片一起被删 | 改为只删带广告标记的 card 段：`card_type` 命中 ad/ads/advert/commercial/promotion，或段内含 `adjson`、`ad_info`、`ad_zone_id`、`creative_id` 等 |
 | 2026-10-31 | 1.1.3 / 插件 1.0.14 | 开屏广告与首页彩蛋「又回来了」 | 日志证明是 Loon 证书丢失导致 `Mitm unavailable`（06:52 起），规则本身未退化；另外把 `launch_v2` / `real_time_launch_v2` / `sdk_launch` 与 `search_eggs` / `pull_refresh_search_eggs` 显式列出，避免通拦收窄时连带漏掉 |
+| 2026-11-03 | 插件 1.0.20 | 关掉 Loon 一段时间后会预下载广告，必须清缓存才干净 | 云配置 `config/all` 增加 4 个预下载开关（置 `status=false`、版本前推，`etag` 不动）。机制与取舍见 `../ADS-CONFIG-SWITCH-20261103.md` |
+| 2026-11-03 | 插件 1.0.21 | 推荐流里仍有会员文章卡（点开是 `oia.zhihu.com/km_paid_content/share?km_pst=…`） | 会员判定增加「链接类字段命中盐选分享落地页」一条；只认 `url`/`link`/`schema`/`href` 结尾的字段，正文 `content` 里引用同一链接的回答不误删 |
+| 2026-11-03 | 插件 1.0.22 | 需要确认那种卡的实际字段 | 新增 `ZHFEED` 卡片摘要（仅 Debug）：逐张打 `keys`/`targetKeys`/`children`/`links`/`verdict`，用来判「链接不在 link 字段」还是「卡片走 deep link」 |
 
 两次都属于「去广告规则误伤正文」，判定标准已经收窄为：**标记为广告才删，其余一律保留**。想法详情的图片若挂在非 card 段，仍需打开 Debug 合集的「知乎-调试」抓 `pins/v2/{id}` 响应再定位。
+
+### 广告为什么会「复吸」（预下载 + 本地池）
+
+知乎开屏/信息流素材是「预取落盘 + 本地池」结构，不是每次实时拉：
+
+- 响应里的条目带 `prefetch.start_time/end_time`（实测约 7 天窗口）与 `max_impression_times`、`view_interval`；客户端按时间窗决定放不放。
+- `launch.impl.LaunchImpl#requestAd` 命中预加载 JSON（`launch.utils.c.a/c.b` 静态字段）时**完全不发网络请求**。
+- 请求失败时 `onFail` 会读 SP 里的当日缓存广告并播放（受 `isLastFailLaunchShow` 控制），播完才清。
+- 预加载落库走 `saveAdForAiSplice → launch.room.d.f()`（Room `NewLaunchAdRoomDataBase`）。
+
+所以「关掉 Loon 就预下载、之后必须清缓存」是预期行为，不是规则写错。当前对策是把云配置里的预下载开关关掉（见上表），让 Loon 关闭窗口里也不再攒素材。
 
 ### MITM 前置检查（先做，再谈规则）
 
@@ -126,5 +140,6 @@ git diff --check
 - 自动测试覆盖规则、调试开关、两种构建的过滤结果及构建一致性；真实响应回放核对正文、图片、相邻条目与分页，真机确认页面效果。
 - 改动详情页结构段相关逻辑时，必须回归三类页面：回答详情、文章（`articles`）、想法（`pins/v2/{id}?single_content=1`）。想法是最近两次图片误伤的唯一暴露面。
 - 修改模板与源码后运行 `npm run build`；版本号第三位递增，脚本 URL 使用完整版本号刷新。独立路径模块按对应规则同步维护。
+- 开启调试后，`ZHFEED` 给推荐流每张卡一行摘要（`id` / `type` / `style` / `keys` / `targetKeys` / `children` / `links` / `verdict` / `reason`，最多 12 张），用来定位「没被删掉的卡把链接放在哪个字段」；只在 `topstory/recommend` 打，翻页重新打一份。
 - 开启调试后，`ZHCLEAN` 记录过滤计数，`removed` 合计字段和条目删除；`ZHSEARCH-META` / `ZHSEARCH-BODY` 记录完整搜索响应及请求 URL，按 `id`、`part` 拼接，每段 1200 字符。
 - 原始日志、抓包与证书留在本机。Debug 合集的「知乎-调试」默认关闭，开启后以 `ZHSEARCH-*` 记录完整搜索响应。

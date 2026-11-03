@@ -1,9 +1,9 @@
 #!name=RedCognitio 去广告合集（jsDelivr 镜像）
-#!desc=知乎 / 淘宝 / 网易云音乐 / 哔咔 / 高德 / missav / JAV 站族 / 多邻国，按应用开关；Release · 1.0.19；jsDelivr 镜像；需 MITM，Loon 3.5.1+
+#!desc=知乎 / 淘宝 / 网易云音乐 / 哔咔 / 高德 / missav / JAV 站族 / 多邻国，按应用开关；Release · 1.0.22；jsDelivr 镜像；需 MITM，Loon 3.5.1+
 #!author=RedContritio
 #!homepage=https://github.com/RedContritio/RedCognitio-Ads-Rule
-#!version=1.0.19
-#!date=2026-10-31 · 1.0.19
+#!version=1.0.22
+#!date=2026-11-03 · 1.0.22
 #!loon_version=3.5.1(983)
 #!category=广告拦截
 #!type=normal
@@ -247,7 +247,12 @@ request if ${netease_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*mu
 request if ${netease_enable} == true && ${url} ~= /^https?:\/\/ipv[46]\.music\.163\.com\// then reject(404)
 
 # ══ 传输层：改写云配置禁用 HTTPDNS 与 QUIC ══
-response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/api\/cloud\/zhihu\/config\/all/i then response.json.jq("def disabled_keys: {\"km_httpdns_new_config_tars\":true,\"preFetchHttpDns\":true,\"httpdns_detector_use_concurrent\":true,\"httpdns_use_memory_cache\":true,\"httpdns_new_config_tars\":true,\"tarsMixAb\":true,\"sugarQuicConfig\":true,\"quic_dns_detect_enable\":true,\"quicMixAB\":true,\"quic_downgrade_enable\":true,\"quic_priority_strategy\":true,\"quic_check_health_enable\":true,\"tquic_configuration\":true,\"networkExprimentList\":true,\"tars_ab_list\":true,\"zaSetExtraRequestHeader\":true}; def disable_dns: if type == \"object\" then if has(\"whiteHosts\") then .whiteHosts = [] else . end | if has(\"isDetectorClosed\") then .isDetectorClosed = 1 else . end | if has(\"isBackupIPClosed\") then .isBackupIPClosed = 1 else . end | if has(\"isDowngradeClosed\") then .isDowngradeClosed = 0 else . end | if has(\"dnsParser\") and (.dnsParser | type) == \"object\" then .dnsParser.httpdnsEnable = 0 else . end else . end; def disable_core_dns: if type == \"object\" then .ZHHttpDnsStartupItem_PreResolveHostsSample = \"0\" | .ZHSwitchHTTPDNSFunction_switchHTTPDNS = \"0\" | .ZHSwitchHTTPDNSFunction_switchHTTPDNSNew = {ratio: 0, whiteHosts: []} | .ZHBackUpIP_Switch_Open = \"0\" | .ZHBackUpIP_Detecter_Open = \"0\" | .ZHBackUpIPDetector_Open_backupipDetector = \"0\" | .LocalDNSSetHostWhiteList = [] else . end; if (.data.configs | type) == \"array\" then .data.configs |= map( if type != \"object\" then . elif .configKey == \"coreNetworkConf_useTars\" or .configKey == \"km_coreNetworkConf_useTars\" then .configValue |= disable_core_dns | .configVersion = \"20261024.03.30.00001\" elif (disabled_keys[.configKey // \"\"] // false) == true then .status = false | .configValue |= disable_dns | .configVersion = \"20261024.03.30.00001\" else . end) else . end")
+# 同一份云配置里还有广告预下载开关。知乎开屏/信息流素材是「预取落盘 + 本地池」结构
+# （响应 ads[].prefetch.start_time/end_time 是 7 天窗口，客户端另有预加载 JSON 快路径），
+# 所以关掉预取比拦广告位接口更能防「Loon 关掉期间把广告下到本地」。
+# 已实测存在于 configs[]：ad_resource_preload(false) / check_preload_ad(true) /
+# ad_optimize_Preload(true) / feed_prefetch(0)。这里统一置 status=false。
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/api\/cloud\/zhihu\/config\/all/i then response.json.jq("def disabled_keys: {\"km_httpdns_new_config_tars\":true,\"preFetchHttpDns\":true,\"httpdns_detector_use_concurrent\":true,\"httpdns_use_memory_cache\":true,\"httpdns_new_config_tars\":true,\"tarsMixAb\":true,\"sugarQuicConfig\":true,\"quic_dns_detect_enable\":true,\"quicMixAB\":true,\"quic_downgrade_enable\":true,\"quic_priority_strategy\":true,\"quic_check_health_enable\":true,\"tquic_configuration\":true,\"networkExprimentList\":true,\"tars_ab_list\":true,\"zaSetExtraRequestHeader\":true,\"ad_resource_preload\":true,\"check_preload_ad\":true,\"ad_optimize_Preload\":true,\"feed_prefetch\":true}; def disable_dns: if type == \"object\" then if has(\"whiteHosts\") then .whiteHosts = [] else . end | if has(\"isDetectorClosed\") then .isDetectorClosed = 1 else . end | if has(\"isBackupIPClosed\") then .isBackupIPClosed = 1 else . end | if has(\"isDowngradeClosed\") then .isDowngradeClosed = 0 else . end | if has(\"dnsParser\") and (.dnsParser | type) == \"object\" then .dnsParser.httpdnsEnable = 0 else . end else . end; def disable_core_dns: if type == \"object\" then .ZHHttpDnsStartupItem_PreResolveHostsSample = \"0\" | .ZHSwitchHTTPDNSFunction_switchHTTPDNS = \"0\" | .ZHSwitchHTTPDNSFunction_switchHTTPDNSNew = {ratio: 0, whiteHosts: []} | .ZHBackUpIP_Switch_Open = \"0\" | .ZHBackUpIP_Detecter_Open = \"0\" | .ZHBackUpIPDetector_Open_backupipDetector = \"0\" | .LocalDNSSetHostWhiteList = [] else . end; if (.data.configs | type) == \"array\" then .data.configs |= map( if type != \"object\" then . elif .configKey == \"coreNetworkConf_useTars\" or .configKey == \"km_coreNetworkConf_useTars\" then .configValue |= disable_core_dns | .configVersion = \"20261024.03.30.00001\" elif (disabled_keys[.configKey // \"\"] // false) == true then .status = false | .configValue |= disable_dns | .configVersion = \"20261024.03.30.00001\" else . end) else . end")
 
 # ══ 广告位 ══
 # 14 个广告位接口，含开屏 launch_v2、按回答 ID 请求的 bottom-v2
@@ -335,31 +340,36 @@ response if ${amap_enable} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9-]+\.)*am
 
 [Script]
 
+# 网易云音乐：广告「配置面」探针（仅 Debug）。开屏放不放由 /eapi/ad/loading/judge 决定，
+# 预取窗口与素材开关在 /ad/config、/ad/commonconfig、/ad/materialconfig 里，字段名在包里已混淆，
+# 只能以真实响应为准。注意：这几条 URL 在「网易云音乐-去广告」开启时被 404 掉，探针看不到；
+# 抓配置要先把该开关关掉跑一轮，再开着开关做 A/B。
+
 # 开屏图片与视频
-response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/Taobao-ads-clean.js?v=1.0.19") with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
+response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/Taobao-ads-clean.js?v=1.0.22") with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
 
 # 开屏活动（poplayer 远程模板）
-response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/Taobao-ads-clean.js?v=1.0.19") with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
+response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/Taobao-ads-clean.js?v=1.0.22") with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
 
 # 不拦：首页主数据 / 推荐流 / newface 首页 / 商品详情 / 购物车 / 订单 / 搜索 /
 #       mtop 网关 / 会场 H5 / gw.alicdn.com 商品图 / dinamicx 弹窗模板
 
 
 # 哔咔：PicaWeb 页面注入（路径无扩展名才可能是 SPA 的 HTML，assets 与接口不进脚本）
-response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/pica-clean.js?v=1.0.19", {${pica_enable}}) with tag="哔咔去广告注入", requires_body=true
+response if ${pica_enable} == true && ${url} ~= /^https?:\/\/(?:www\.)?(?:manhuabika\.com|picacomic\.com)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/pica-clean.js?v=1.0.22", {${pica_enable}}) with tag="哔咔去广告注入", requires_body=true
 
-response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/zhihu-clean.js?v=1.0.19", {${zhihu_enable}, ${zhihu_purify}}) with tag="知乎内容净化", requires_body=true
+response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/(?:api\/)?(?:search_v[0-9]+|topstory\/recommend|(?:simple-)?next-render|(?:v[0-9]+\/)?questions|(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/zhihu-clean.js?v=1.0.22", {${zhihu_enable}, ${zhihu_purify}}) with tag="知乎内容净化", requires_body=true
 
 # missav：页面注入。路径无扩展名才可能是文档，assets / fonts / 视频分片不进脚本
-response if ${missav_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*(?:missav123\.com|missav\.(?:ws|ai|live))\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/missav-clean.js?v=1.0.19", {${missav_enable}}) with tag="missav 去广告注入", requires_body=true
+response if ${missav_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*(?:missav123\.com|missav\.(?:ws|ai|live))\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/missav-clean.js?v=1.0.22", {${missav_enable}}) with tag="missav 去广告注入", requires_body=true
 
 # JAV 站族：同一套判据铺一批站；新增站点只加域名，判据不用改
-response if ${jav_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*(?:18av\.mm-cg\.com|njav\.tv|123av\.com|javdb\.com|javbus\.com|jav321\.com|javgg\.net|supjav\.com|javlibrary\.com|avmoo\.com|tellme\.pw)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/jav-clean.js?v=1.0.19", {${jav_enable}}) with tag="JAV 站族去广告注入", requires_body=true
+response if ${jav_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*(?:18av\.mm-cg\.com|njav\.tv|123av\.com|javdb\.com|javbus\.com|jav321\.com|javgg\.net|supjav\.com|javlibrary\.com|avmoo\.com|tellme\.pw)\/+(?![^?#]*\.[a-z0-9]+(?:[?#]|$))/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/jav-clean.js?v=1.0.22", {${jav_enable}}) with tag="JAV 站族去广告注入", requires_body=true
 # 多邻国：插屏放不放由**账号档位**决定，不是广告接口，所以改写点是首方用户数据。
 # 命中面只有 2023-05-23 的 batch（批量包裹：responses[] 内 body 可能是字符串也可能是对象，
 # 且带 etag 的那条必须原样放行，否则条件请求会污染缓存）与 users/{id}（裸 userdata）。
 # 只改三处：shopItems 补 gold_subscription、subscriberLevel 置 GOLD、trackingProperties.has_item_*_subscription 全开。
-response if ${duolingo_enable} == true && ${url} ~= /^https?:\/\/(?:ios-api-[a-z0-9-]+|api\d+)\.duolingo\.c(?:n|om)\/2023-05-23\/(?:batch|users\/[^\/?#]+)(?:[?#]|$)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/duolingo-clean.js?v=1.0.19", {${duolingo_enable}}) with tag="多邻国去广告", requires_body=true
+response if ${duolingo_enable} == true && ${url} ~= /^https?:\/\/(?:ios-api-[a-z0-9-]+|api\d+)\.duolingo\.c(?:n|om)\/2023-05-23\/(?:batch|users\/[^\/?#]+)(?:[?#]|$)/i then script("https://cdn.jsdelivr.net/gh/RedContritio/RedCognitio-Ads-Rule@main/dist/release/scripts/duolingo-clean.js?v=1.0.22", {${duolingo_enable}}) with tag="多邻国去广告", requires_body=true
 
 # 判据诊断（Debug）：上面改完仍出插屏，说明判据不在资格层。本行只把候选**键名**打到日志，不落值。
 # 多邻国：广告/促销决策面诊断（仅 Debug 构建）。放不放推广由 plus-promotions 决策接口决定，
