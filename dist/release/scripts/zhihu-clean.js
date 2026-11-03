@@ -98,7 +98,7 @@ function scrub(node, state) {
     state.removed++) : scrub(node[key], state);
 }
 
-if (removeAds || purify) {
+if (new Set([ "ANSWER", "PIN" ]), removeAds || purify) {
     let body;
     try {
         body = JSON.parse($response.body);

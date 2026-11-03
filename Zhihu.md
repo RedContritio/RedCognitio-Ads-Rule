@@ -100,6 +100,7 @@
 | 2026-11-03 | 插件 1.0.21 | 推荐流里仍有会员文章卡（点开是 `oia.zhihu.com/km_paid_content/share?km_pst=…`） | 会员判定增加「链接类字段命中盐选分享落地页」一条；只认 `url`/`link`/`schema`/`href` 结尾的字段，正文 `content` 里引用同一链接的回答不误删 |
 | 2026-11-03 | 插件 1.0.22 | 需要确认那种卡的实际字段 | 新增 `ZHFEED` 卡片摘要（仅 Debug）：逐张打 `keys`/`targetKeys`/`children`/`links`/`verdict`，用来判「链接不在 link 字段」还是「卡片走 deep link」 |
 | 2026-11-03 | 插件 1.0.24 | 真机日志里 `ZHFEED` 一张卡也命中不了盐选链接，但链接确实存在 | 卡片跳转不在 `url` 字段，而在 `action.parameter`（`route_url=https%3A%2F%2F…`，整条 URL 百分号编码）。会员判定改为「先解码再匹配」，`links` 与 `action.parameter` 都输出解码后的值 |
+| 2026-11-03 | 插件 1.0.25 | 那类卡在推荐流里随机出现，逐条复现不现实 | 加 `ZHFEED-SUSPECT`：可疑卡片自动整张留证（`contentType` 非 `ANSWER/PIN`、主机非知乎、路径含 `km_paid`、文本含盐选/付费词），不需要复现同一篇；`ZHFEED` 摘要补 `ct` 与 `act`（主机+路径） |
 
 两次都属于「去广告规则误伤正文」，判定标准已经收窄为：**标记为广告才删，其余一律保留**。想法详情的图片若挂在非 card 段，仍需打开 Debug 合集的「知乎-调试」抓 `pins/v2/{id}` 响应再定位。
 
@@ -141,6 +142,7 @@ git diff --check
 - 自动测试覆盖规则、调试开关、两种构建的过滤结果及构建一致性；真实响应回放核对正文、图片、相邻条目与分页，真机确认页面效果。
 - 改动详情页结构段相关逻辑时，必须回归三类页面：回答详情、文章（`articles`）、想法（`pins/v2/{id}?single_content=1`）。想法是最近两次图片误伤的唯一暴露面。
 - 修改模板与源码后运行 `npm run build`；版本号第三位递增，脚本 URL 使用完整版本号刷新。独立路径模块按对应规则同步维护。
+- 开启调试后，`ZHFEED-SUSPECT` 把「像会员内容」的卡片整张打一份（≤2400 字符），判据：`contentType` 不在 `ANSWER/PIN`、跳转主机不是 `zhihu.com/zhimg.com`、`action` 路径含 `km_paid|paid_content`、children 文本命中 `盐选|会员专享|付费|试读|解锁` 等。用途：这类卡在推荐流里随机出现，不必复现同一篇，等它自然出现就会留证。
 - 开启调试后，`ZHFEED` 给推荐流每张卡一行摘要（`id` / `type` / `style` / `template` / `keys` / `targetKeys` / `children` / `links` / `action.type` / `action.parameter`（已解码）/ `biz.contentType|media|deliver` / `verdict` / `reason`，最多 12 张），用来定位「没被删掉的卡把链接放在哪个字段」；只在 `topstory/recommend` 打，翻页重新打一份。
 - 开启调试后，`ZHCLEAN` 记录过滤计数，`removed` 合计字段和条目删除；`ZHSEARCH-META` / `ZHSEARCH-BODY` 记录完整搜索响应及请求 URL，按 `id`、`part` 拼接，每段 1200 字符。
 - 原始日志、抓包与证书留在本机。Debug 合集的「知乎-调试」默认关闭，开启后以 `ZHSEARCH-*` 记录完整搜索响应。

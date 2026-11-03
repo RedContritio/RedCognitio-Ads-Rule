@@ -386,6 +386,29 @@ test("membership filtering preserves ordinary discussion, author badges, empty m
   assert.deepEqual(clean({ data }, { url: "https://api.zhihu.com/next-render?type=answer", argument: { zhihu_enable: false, zhihu_purify: true } }), { data });
 });
 
+test("suspicious cards are dumped whole so a membership article need not be re-found", () => {
+  const article = { id: "art-1", type: "ComponentCard", style: "card_padding_dynamic_GBK99A_V3",
+    action: { type: "Route", parameter: "route_url=https%3A%2F%2Fwww.zhihu.com%2Farticle%2F123" },
+    extra: { business_ext_map: { contentType: "ARTICLE", media_type: "IMAGE_TEXT" } },
+    children: [{ style: "text_recommend_title", text: "盐选专栏：某篇会员文章" }] };
+  const answer = { id: "ans-1", type: "ComponentCard",
+    action: { type: "Route", parameter: "route_url=https%3A%2F%2Fzhihu.com%2Fquestion%2F1%2Fanswer%2F2" },
+    extra: { business_ext_map: { contentType: "ANSWER" } },
+    children: [{ style: "text_recommend_title", text: "普通回答" }] };
+  const logs = [];
+  clean({ data: [article, answer] }, { url: "https://api.zhihu.com/topstory/recommend", logs,
+    argument: { zhihu_purify: true, zhihu_debug: true } });
+  const suspects = logs.filter(line => line.startsWith("ZHFEED-SUSPECT ")).map(line => JSON.parse(line.slice("ZHFEED-SUSPECT ".length)));
+  assert.equal(suspects.length, 1);
+  assert.equal(suspects[0].id, "art-1");
+  assert(suspects[0].reasons.includes("content_type:ARTICLE"));
+  assert(suspects[0].reasons.includes("text:salt"));
+  assert(suspects[0].card.includes("盐选专栏"));
+  const feed = JSON.parse(logs.find(line => line.startsWith("ZHFEED ")).slice(7));
+  assert.deepEqual(feed.cards.map(card => card.ct), ["ARTICLE", "ANSWER"]);
+  assert.equal(feed.cards[1].act, "zhihu.com/question/1/answer/2");
+});
+
 test("paid share is detected through percent-encoded SDUI action routes", () => {
   const encoded = "route_url=https%3A%2F%2Foia.zhihu.com%2Fkm_paid_content%2Fshare%3Fkm_pst%3DAAA%26share_code%3DBBB";
   const paid = { id: "paid-card", type: "ComponentCard", style: "card_padding_dynamic_GBK99A_V3",

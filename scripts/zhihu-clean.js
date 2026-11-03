@@ -137,6 +137,53 @@ function hasPaidShare(node) {
   return false;
 }
 
+// 可疑卡片自动留证：盐选/会员文章不一定把链接放在卡片上（分享落地页是点开后才拼的），
+// 所以换个思路——只要卡片有「像会员内容」的迹象，就把这张卡完整打一份，等它自然出现即可，
+// 不需要刻意复现同一篇。判定：非白名单 contentType、跳转主机不是知乎、或正文命中关键词。
+const CARD_PLAIN_CT = new Set(["ANSWER", "PIN"]);
+const SUSPECT_TEXT = /(?:盐选|会员专享|会员内容|会员文章|付费|试读|解锁|km_paid|paid_content|salt|vip_)/i;
+const SUSPECT_HOST = /(?:^|\.)(?:zhihu\.com|zhimg\.com|zhihu\.dev)$/i;
+
+function actionTarget(action) {
+  const raw = action && typeof action === "object" ? String(action.parameter || "") : "";
+  const decoded = decodeLoose(raw).replace(/^route_url=/, "");
+  const match = decoded.match(/^[a-z][a-z0-9+.-]*:\/\/([^/?#]+)([^?#]*)/i);
+  if (match) return { host: match[1].toLowerCase(), path: match[2] || "/" };
+  return { host: "", path: decoded.slice(0, 80) };
+}
+
+function cardText(item) {
+  const parts = [];
+  const walk = (node, depth) => {
+    if (depth > 4 || parts.length > 40) return;
+    if (Array.isArray(node)) {
+      for (const value of node) walk(value, depth + 1);
+      return;
+    }
+    if (typeof node === "string") {
+      parts.push(node);
+      return;
+    }
+    if (!node || typeof node !== "object") return;
+    for (const value of Object.values(node)) walk(value, depth + 1);
+  };
+  for (const child of Array.isArray(item.children) ? item.children : []) walk(child, 0);
+  return parts.join(" ");
+}
+
+function suspicion(item) {
+  const biz = (item.extra && item.extra.business_ext_map) || {};
+  const ct = String(biz.contentType || biz.content_type || "").toUpperCase();
+  const target = actionTarget(item.action);
+  const reasons = [];
+  if (ct && !CARD_PLAIN_CT.has(ct)) reasons.push("content_type:" + ct);
+  if (!ct) reasons.push("content_type:missing");
+  if (target.host && !SUSPECT_HOST.test(target.host)) reasons.push("host:" + target.host);
+  if (/km_paid|paid_content/i.test(target.path)) reasons.push("path:paid");
+  if (SUSPECT_TEXT.test(cardText(item))) reasons.push("text:salt");
+  return reasons;
+}
+
 // 推荐流卡片摘要（仅调试）：把「这张卡长什么样、为什么留/删」压成一行，
 // 用来判断没被删掉的会员卡到底把链接放在哪个字段。不打完整 body。
 function summarizeFeed(item, verdict, reason) {
@@ -178,6 +225,8 @@ function summarizeFeed(item, verdict, reason) {
     targetKeys: Object.keys(target).slice(0, 12),
     targetType: target.type || null,
     template,
+    ct: biz.contentType || biz.content_type || null,
+    act: (() => { const t = actionTarget(action); return t.host ? t.host + t.path.slice(0, 60) : null; })(),
     action: action.type ? { type: action.type, parameter: decodeLoose(String(action.parameter || "")).replace(/^route_url=/, "").slice(0, 140) } : null,
     biz: {
       contentType: biz.contentType || biz.content_type || null,
@@ -271,7 +320,19 @@ function handle(body) {
       body[key] = body[key].filter((item) => {
         const member = isMemberOnly(item);
         if (feedProbes && item && typeof item === "object") {
-          feedProbes.push(summarizeFeed(item, member ? "dropped" : "kept", member ? "member_only" : ""));
+          const summary = summarizeFeed(item, member ? "dropped" : "kept", member ? "member_only" : "");
+          feedProbes.push(summary);
+          const reasons = member ? [] : suspicion(item);
+          if (reasons.length) {
+            const full = JSON.stringify(item);
+            console.log("ZHFEED-SUSPECT " + JSON.stringify({
+              url: url.split("?")[0],
+              id: summary.id,
+              reasons,
+              truncated: full.length > 2400,
+              card: full.slice(0, 2400),
+            }));
+          }
         }
         return !member;
       });

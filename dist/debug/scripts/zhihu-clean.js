@@ -72,6 +72,34 @@ function hasPaidShare(node) {
     return !1;
 }
 
+const CARD_PLAIN_CT = new Set([ "ANSWER", "PIN" ]), SUSPECT_TEXT = /(?:盐选|会员专享|会员内容|会员文章|付费|试读|解锁|km_paid|paid_content|salt|vip_)/i, SUSPECT_HOST = /(?:^|\.)(?:zhihu\.com|zhimg\.com|zhihu\.dev)$/i;
+
+function actionTarget(action) {
+    const decoded = decodeLoose(action && "object" == typeof action ? String(action.parameter || "") : "").replace(/^route_url=/, ""), match = decoded.match(/^[a-z][a-z0-9+.-]*:\/\/([^/?#]+)([^?#]*)/i);
+    return match ? {
+        host: match[1].toLowerCase(),
+        path: match[2] || "/"
+    } : {
+        host: "",
+        path: decoded.slice(0, 80)
+    };
+}
+
+function suspicion(item) {
+    const biz = item.extra && item.extra.business_ext_map || {}, ct = String(biz.contentType || biz.content_type || "").toUpperCase(), target = actionTarget(item.action), reasons = [];
+    return ct && !CARD_PLAIN_CT.has(ct) && reasons.push("content_type:" + ct), ct || reasons.push("content_type:missing"),
+    target.host && !SUSPECT_HOST.test(target.host) && reasons.push("host:" + target.host),
+    /km_paid|paid_content/i.test(target.path) && reasons.push("path:paid"), SUSPECT_TEXT.test(function(item) {
+        const parts = [], walk = (node, depth) => {
+            if (!(depth > 4 || parts.length > 40)) if (Array.isArray(node)) for (const value of node) walk(value, depth + 1); else if ("string" != typeof node) {
+                if (node && "object" == typeof node) for (const value of Object.values(node)) walk(value, depth + 1);
+            } else parts.push(node);
+        };
+        for (const child of Array.isArray(item.children) ? item.children : []) walk(child, 0);
+        return parts.join(" ");
+    }(item)) && reasons.push("text:salt"), reasons;
+}
+
 function summarizeFeed(item, verdict, reason) {
     const links = [], collect = (node, depth) => {
         if (!(depth > 4 || links.length >= 6)) if (Array.isArray(node)) for (const value of node) collect(value, depth + 1); else if (node && "object" == typeof node) for (const [key, value] of Object.entries(node)) if ("string" == typeof value) {
@@ -93,6 +121,11 @@ function summarizeFeed(item, verdict, reason) {
         targetKeys: Object.keys(target).slice(0, 12),
         targetType: target.type || null,
         template,
+        ct: biz.contentType || biz.content_type || null,
+        act: (() => {
+            const t = actionTarget(action);
+            return t.host ? t.host + t.path.slice(0, 60) : null;
+        })(),
         action: action.type ? {
             type: action.type,
             parameter: decodeLoose(String(action.parameter || "")).replace(/^route_url=/, "").slice(0, 140)
@@ -167,8 +200,22 @@ if (removeAds || purify) {
             const before = body[key].length;
             body[key] = body[key].filter(item => {
                 const member = isMemberOnly(item);
-                return feedProbes && item && "object" == typeof item && feedProbes.push(summarizeFeed(item, member ? "dropped" : "kept", member ? "member_only" : "")),
-                !member;
+                if (feedProbes && item && "object" == typeof item) {
+                    const summary = summarizeFeed(item, member ? "dropped" : "kept", member ? "member_only" : "");
+                    feedProbes.push(summary);
+                    const reasons = member ? [] : suspicion(item);
+                    if (reasons.length) {
+                        const full = JSON.stringify(item);
+                        console.log("ZHFEED-SUSPECT " + JSON.stringify({
+                            url: url.split("?")[0],
+                            id: summary.id,
+                            reasons,
+                            truncated: full.length > 2400,
+                            card: full.slice(0, 2400)
+                        }));
+                    }
+                }
+                return !member;
             }), state.removed += before - body[key].length, state.restricted += before - body[key].length;
         }
         if (removeAds && scrub(body, state), NEXT_RENDER_URL.test(url) && body && Array.isArray(body.data) && (body.data = body.data.filter(item => !item || "object" != typeof item || (removeAds && "ad" === item.type ? (state.removed++,
