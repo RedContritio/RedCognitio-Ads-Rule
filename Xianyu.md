@@ -230,7 +230,9 @@ grep -c "idlecommerce" RedCognitio-Ads.plugin                        # 0 → 装
 | 三方开屏有硬编码广告位兜底：`adPlusSpaceId=115982`、`ylhSpaceId=2138110733853185` | `splashad/tool/ConfigCache`（SP `splash_ad_config_cache`） |
 | 开屏状态分散在 4 个 SP（`splash_ad_prefetch` / `splash_ad_orange` / `splash_ad_config_cache` / `splash_ad_preview`）→ App 内「清除缓存」清不到 | 同上各类的 `getSharedPreference` |
 
-因此与知乎的差异：知乎的广告总闸在 HTTPS 的 `config/all`（可改写），闲鱼的橙子配置在长连接里（改不到）；唯一走 mtop 的开关是 AB 的预取闸。1.0.29 起「闲鱼-调试」增抓 `mtop.alibaba.motu.ab.config.get` / `mtop.taobao.idle.ab.config.get` / `idle.mach.advertise.*` / `idle.play.ad.event.*` / `idlehome.home.pop.interest.upload`，先看清 AB 结构再决定要不要改 `is_on`。
+因此与知乎的差异：知乎的广告总闸在 HTTPS 的 `config/all`（可改写），闲鱼的橙子配置在长连接里（改不到）；唯一走 mtop 的开关是 AB 的预取闸。
+
+顺带把「能不能用接口关掉 ANet 长连接」也查了：开关是 `enableSpdy`，`SwitchConfig.isGlobalSpdySwitchOpen() = LocalConfig.enableSpdy && RemoteConfig.enableSpdy`，而 `RemoteConfig` 的唯一来源是 `MtopConfigOrangeListenerImpl`（Orange 组 `mtopsdk_android_switch`）——**下发通道就是改不到的那条**；本地副本在明文 SP `MtopConfigStore`（`ConfigStoreManager`），所以只有 hook 或越狱改本地才生效。详见 `../XIANYU-STATIC-ANALYSIS-20261109.md` §7.6。1.0.29 起「闲鱼-调试」增抓 `mtop.alibaba.motu.ab.config.get` / `mtop.taobao.idle.ab.config.get` / `idle.mach.advertise.*` / `idle.play.ad.event.*` / `idlehome.home.pop.interest.upload`，先看清 AB 结构再决定要不要改 `is_on`。
 
 ---
 
