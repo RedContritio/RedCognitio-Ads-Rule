@@ -274,6 +274,62 @@ request if ${xianyu_debug} == true && ${url} ~= /^(.+[?&]cv=)1(.*)$/i as amdcCv 
 
 ---
 
+## 实验：整域 ban 闲鱼业务网关（1.0.38 起 Debug 默认启用）
+
+```ini
+DOMAIN,acs.m.goofish.com,REJECT,extended-matching,pre-matching
+```
+
+这条不是「探针」，而是**按拦截手段本身来测**：15:46 实测表明，把 `acs.m.goofish.com` 整域拒掉后 App 仍能正常使用 —— 说明它走 AMDC 下发的 IP 直连绕过去了。于是问题变成两个，只能靠长跑回答：
+
+| 要回答的 | 判据 |
+|---|---|
+| 会不会静默降级 | 首页下拉刷新、搜索建议、详情页、聊天收发、发布宝贝各走一遍，看哪一步报错或空白 |
+| 开屏是否稳定消失 | ≥3 次冷启动；若某次又出现 → 广告数据走 IP 直连，这条 ban 挡不住 |
+
+为什么不能直接下结论：ban 只掐掉「按域名解析」这一条路，而 AMDC 那条 IP 直连还在（`http://59.82.113.219/amdc/mobileDispatch` 就是它自己）。这次没出开屏，也可能只是频控恰好没到。
+
+临时关掉：换装 Release 构建（该段只在 Debug 里）。
+
+## 请求为什么看不见：域名是写死的，IP 是 AMDC 发的（1.0.36）
+
+用户质疑得对——包里不可能全动态。7.28.86 检索结果：
+
+| 类别 | 包里写死的 | 出现次数 |
+|---|---|---|
+| mtop 网关域名 | `acs.m.taobao.com` / `guide-acs.m.taobao.com` / `acs.wapa.taobao.com` / `g-acs.m.goofish.com` / `g-acs.wapa.goofish.com` / `acs.wapa.goofish.com` / `acs.m.goofish.com` | 45 / 23 / 6 / 1 / 1 / 1 / 1 |
+| 调度域名 | `amdc.m.taobao.com` / `amdc.alipay.com` / `amdc.wapa.taobao.com` / `amdc.taobao.net` | 3 / 5 / 1 / 1 |
+| 素材/页面 | `gw.alicdn.com` 373、`img.alicdn.com` 63、`ossgw.alicdn.com` 54、`heic.alicdn.com` 19、`cloud.video.taobao.com` 14 … | — |
+| 硬编码 IP | `203.107.1.1`（阿里 DNS）、`47.246.64.x`/`47.246.103.x` 一批、`59.82.31.182`、`203.119.244.197` | 少量 |
+
+而日志里真正连的那些 IP —— `59.82.113.219`、`203.119.238.12`、`14.29.63.50`、`59.82.9.32` —— **在包里检索结果为 0**。也就是说：
+
+- **域名层是写死的**（可以拦、可以 MITM）；
+- **IP 层是 AMDC 下发的**，而 **AMDC 走明文 HTTP**（`http://59.82.113.219/amdc/mobileDispatch?appkey=12431167&v=6.5&appVersion=7.28.80&cv=1`）。
+
+所以在 1.0.36 里给 AMDC 加了 request/response 抓取（`XYDEBUG` / `XYDUMP`）：它的响应里就有网关 IP、协议（spdy/h2/quic）、权重和降级开关——这才是“为什么请求走了 IP 直连”的源头，也是「能不能把流量赶回可 MITM 的命名主机」的唯一依据。
+
+---
+
+## AMDC 响应为什么读不出来，以及 1.0.37 的对策
+
+1.0.36 抓到 45 条 AMDC 响应，全部是 **base64(zstd)**：解码后 magic `28 b5 2f fd`，FHD 的 `Dictionary_ID_flag=3`（带非零 dictID）。把 dictID 抹掉再解，zstd 直接报 `Dictionary is corrupted` —— 说明**真的用字典压的**，而字典不在包里：
+
+- `dex`（11 个）、`assets`（base APK 153 MB 全解）、`lib/arm64-v8a` 156 个 `.so` 全部检索 `37 a4 30 ec`（zstd 字典 magic）→ **0 命中**；
+- 所以字典要么由 `mtop` 动态 bundle 下发，要么在 iOS 侧另有实现。
+
+绕过办法（1.0.37，仅 Debug 构建）：把 AMDC 请求的 `cv` 由 1 改成 0——
+
+```ini
+request if ${xianyu_debug} == true && ${url} ~= /^(.+[?&]cv=)1(.*)$/i as amdcCv then url.replace("${amdcCv.1}0${amdcCv.2}")
+```
+
+若 `cv=0` 返回明文 JSON，就能直接读到 `dns` / `service` 字段里的网关 IP、协议与权重，不必再碰压缩。
+
+顺带确认：**不带设备签名直接 curl AMDC 只会拿到 `{"code":1001,"dns":[],"service":[]}`**（164 B），说明调度结果与设备签名绑定，必须从真机侧读。
+
+---
+
 ## 实验开关：打断 ANet 长连接（1.0.34 上线，1.0.35 默认关闭）
 
 Loon 的 `[Rule]` 段不支持 `if ${switch} == true`，所以这条实验只能做成构建级开关：模板里用 `# @debug-only-begin` / `# @debug-only-end` 包住，`tools/build.mjs` 的 `applyDebugOnlyBlocks()` 负责 Release 整段剥掉、Debug 保留。

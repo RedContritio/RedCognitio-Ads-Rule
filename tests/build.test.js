@@ -198,9 +198,8 @@ test("build validates the version prefix and integer build component before writ
 test("debug-only 段只在 Debug 构建里出现（标记行本身不落盘）", () => {
   const active = (text) => text.split("\n").some(line => line.trim().startsWith("DOMAIN,acs.m.goofish.com,REJECT"));
   const debug = fs.readFileSync(path.join(root, "RedCognitio-Ads-debug.plugin"), "utf8");
-  // 1.0.35 起这条实验默认注释掉（实测会把闲鱼业务全掐断），只在 Debug 里保留注释文本
-  assert(!active(debug), "实验规则默认不启用");
-  assert(debug.includes("# DOMAIN,acs.m.goofish.com,REJECT"), "Debug 保留实验说明");
+  // 1.0.38 起 Debug 构建默认带「整域 ban 闲鱼业务网关」的实验规则
+  assert(active(debug), "Debug 应启用实验规则");
   assert(!debug.includes("@debug-only-begin"), "标记行本身不应保留");
   for (const file of ["RedCognitio-Ads.plugin", "RedCognitio-Ads-ghproxy.plugin", "RedCognitio-Ads-jsdelivr.plugin"]) {
     const release = fs.readFileSync(path.join(root, file), "utf8");

@@ -155,7 +155,13 @@ AND,((DOMAIN-SUFFIX,goofish.com),(PROTOCOL,QUIC)),REJECT
 # 业务接口全灭、连首页都加载不出来。也就是说 `acs.m.goofish.com` 是闲鱼唯一业务网关，
 # 用它来「逼出 splash 请求」行不通，只能当「断网对照」用。
 # @debug-only-begin
-# DOMAIN,acs.m.goofish.com,REJECT,extended-matching,pre-matching
+# 1.0.38 起默认启用：把闲鱼业务网关整域拒掉（DNS 阶段拒），用来验证「整域 ban」到底能不能当拦截手段。
+# 15:46 那次实测：App 仍可正常使用（走 AMDC 下发的 IP 直连），当次没出开屏。
+# 需要长时间（≥3 次冷启动 + 首页/搜索/详情/聊天/发布各走一遍）才能判断：
+#   a) 哪些功能会静默降级（消息、发布、搜索建议最容易出问题）；
+#   b) 开屏是否稳定消失 —— 若某次又出现，说明广告数据走 IP 直连，这条 ban 挡不住。
+# 想临时关掉：换装 Release 构建（本段不进 Release）。
+DOMAIN,acs.m.goofish.com,REJECT,extended-matching,pre-matching
 # @debug-only-end
 
 # 高德包内没有穿山甲 / 优量汇 / 快手联盟 / Sigmob / Mintegral 等三方联盟 SDK，
