@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-const url = $request.url, AD_TYPES = new Set([ "feed_advert", "short_advert", "externalad", "AdCard", "ZhiPlusCard", "BusinessCard", "MarketCard", "RecommendedProductsCard" ]), AD_STYLE = /^(plutus_card_|brand_card_)/, DETAIL_URL = /(?:api\/)?(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+/, FEED_URL = /\/topstory\/recommend/, NEXT_RENDER_URL = /\/(?:simple-)?next-render(?:\?|$)/, QUESTION_URL = /\/(?:api\/)?(?:v[0-9]+\/)?questions\/[0-9]+(?:\/|\?|$)/, SEARCH_URL = /\/search_v[0-9]+(?:\?|$)/;
+const url = $request.url, AD_TYPES = new Set([ "feed_advert", "market_card", "short_advert", "externalad", "AdCard", "ZhiPlusCard", "BusinessCard", "MarketCard", "RecommendedProductsCard" ]), AD_STYLE = /^(plutus_card_|brand_card_)/, DETAIL_URL = /(?:api\/)?(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+/, FEED_URL = /\/topstory\/recommend/, NEXT_RENDER_URL = /\/(?:simple-)?next-render(?:\?|$)/, QUESTION_URL = /\/(?:api\/)?(?:v[0-9]+\/)?questions\/[0-9]+(?:\/|\?|$)/, SEARCH_URL = /\/search_v[0-9]+(?:\?|$)/;
 
 let arg = $argument;
 
@@ -31,8 +31,21 @@ function isPromoted(item) {
         const promotion = parseObject(value);
         if (promotion && !0 === promotion.is_card) return !0;
     }
+    if ("SvipActivity" === String(extra.type || "")) return !0;
     const commercial = parseObject(retrieval.commercial_promotion_rpc_extra);
     return commercial && "object" == typeof commercial ? Object.keys(commercial).length > 0 : Boolean(commercial);
+}
+
+const PAID_DELIVER = new Set([ "paid" ]);
+
+function deliverType(item) {
+    const biz = item.extra && item.extra.business_ext_map || {}, sdui = item.unify_content && item.unify_content.biz_ext || {}, raw = biz.deliver_type || biz.deliver || sdui.deliver_type || sdui.deliver || "";
+    return String(raw || "").toLowerCase();
+}
+
+function cardContentType(item) {
+    const biz = item.extra && item.extra.business_ext_map || {}, info = item.unify_content && item.unify_content.content_info || {};
+    return String(biz.contentType || biz.content_type || info.content_type || info.contentType || "").toUpperCase();
 }
 
 function isVideo(item) {
@@ -86,9 +99,9 @@ function actionTarget(action) {
 }
 
 function suspicion(item) {
-    const biz = item.extra && item.extra.business_ext_map || {}, ct = String(biz.contentType || biz.content_type || "").toUpperCase(), target = actionTarget(item.action), reasons = [];
+    const ct = cardContentType(item), deliver = deliverType(item), target = actionTarget(item.action), reasons = [];
     return ct && !CARD_PLAIN_CT.has(ct) && reasons.push("content_type:" + ct), ct || reasons.push("content_type:missing"),
-    target.host && !SUSPECT_HOST.test(target.host) && reasons.push("host:" + target.host),
+    deliver && "normal" !== deliver && reasons.push("deliver:" + deliver), target.host && !SUSPECT_HOST.test(target.host) && reasons.push("host:" + target.host),
     /km_paid|paid_content/i.test(target.path) && reasons.push("path:paid"), SUSPECT_TEXT.test(function(item) {
         const parts = [], walk = (node, depth) => {
             if (!(depth > 4 || parts.length > 40)) if (Array.isArray(node)) for (const value of node) walk(value, depth + 1); else if ("string" != typeof node) {
@@ -121,7 +134,7 @@ function summarizeFeed(item, verdict, reason) {
         targetKeys: Object.keys(target).slice(0, 12),
         targetType: target.type || null,
         template,
-        ct: biz.contentType || biz.content_type || null,
+        ct: cardContentType(item) || null,
         act: (() => {
             const t = actionTarget(action);
             return t.host ? t.host + t.path.slice(0, 60) : null;
@@ -131,9 +144,9 @@ function summarizeFeed(item, verdict, reason) {
             parameter: decodeLoose(String(action.parameter || "")).replace(/^route_url=/, "").slice(0, 140)
         } : null,
         biz: {
-            contentType: biz.contentType || biz.content_type || null,
-            media: biz.media_type || null,
-            deliver: biz.deliver_type || null
+            contentType: cardContentType(item) || null,
+            media: biz.media_type || (item.unify_content && item.unify_content.content_info || {}).media || null,
+            deliver: biz.deliver_type || (item.unify_content && item.unify_content.biz_ext || {}).deliver_type || null
         },
         children: children.slice(0, 8).map(child => child && (child.style || child.type) || null),
         links
@@ -146,6 +159,7 @@ function isMemberOnly(item) {
     if (hasPaidShare(item)) return !0;
     const type = String(answer.type || answer.content_type || answer.producer || "").toLowerCase(), paid = parseObject(answer.paid_info);
     if (!0 === answer.has_purchased || !0 === answer.is_purchased || !0 === answer.is_free || paid && !0 === paid.has_purchased) return !1;
+    if (PAID_DELIVER.has(deliverType(item))) return !0;
     if ("knowledge_ad" === item.type && ("knowledge_vip" === answer.card_type || /^(?:album_paid_column|paid_column_chapter)$/.test(answer.commodity_type || ""))) return !0;
     if (answer.label_info && "purchase_required" === answer.label_info.type) return !0;
     const paidType = /^(?:paid_content|paid_column|paid_column_sku|album)$/.test(type);

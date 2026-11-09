@@ -236,6 +236,13 @@ response if ${xianyu_enable} == true && ${url} ~= /\/gw\/mtop\.taobao\.idle\.loc
 # 搜索结果广告带 dislikeFeedback.clickParam.args.bizType == "ad"，同结构的普通结果保留
 response if ${xianyu_enable} == true && ${url} ~= /\/gw\/mtop\.taobao\.idlemtopsearch\.search\//i then response.json.jq("if (.data.resultList | type) == \"array\" then .data.resultList |= map(select((try (.data.item.main.exContent.dislikeFeedback.clickParam.args.bizType) catch null) != \"ad\")) else . end")
 
+# 首页欢迎弹窗与场景恢复弹窗：一次投放一个 data 容器，清空即「今天没有弹层」。
+# 名单来源：blackmatrix7 AllInOne（`mtop.taobao.idle.home.welcome`）、
+# huijingfei/Shadowrocket-Rules（`mtop.idle.idleadv.(.*)` → REJECT-DICT）；
+# 这里沿用空池写法，不 REJECT：idleadv 的 app.launch.report 是上报，拦掉会重试。
+response if ${xianyu_enable} == true && ${url} ~= /\/gw\/mtop\.taobao\.idle\.home\.welcome\//i then response.json.jq("if (.data | type) == \"object\" then .data = {} else . end")
+response if ${xianyu_enable} == true && ${url} ~= /\/gw\/mtop\.idle\.idleadv\.scene\.restore\//i then response.json.jq("if (.data | type) == \"object\" then .data = {} else . end")
+
 # 明确不拦：idle.item.recommend.list / buy.feeds / playboy.recommend / user.strategy.list /
 #   local.near.by.corner.info / idlemtopsearch.search.shade（整段推广位，拦了是功能裁剪）；
 #   idlecommerce.adx.bid（三方竞价入口，拦掉可能退回非竞价瀑布流）；
@@ -246,7 +253,33 @@ response if ${xianyu_enable} == true && ${url} ~= /\/gw\/mtop\.taobao\.idlemtops
 request if ${taobao_enable} == true && ${url} ~= /\/mtop\.alimama\.topshow\.query/ then reject(404)
 request if ${taobao_enable} == true && ${url} ~= /\/mtop\.alimama\.topshow\.interact/ then reject(404)
 request if ${taobao_enable} == true && ${url} ~= /\/mtop\.taobao\.poplayer\.xdsl/ then reject(404)
+
+# 开屏全屏图：原先只认 heic 的 `i{id}/…-octopus|tps-1080|1125-` 一种命名，其余形态漏网。
+# 补两种在社区规则里已被实践过的命名（来源：huijingfei/Shadowrocket-Rules sr_app_ad.conf 的
+# `(gw|heic|img).alicdn.com/imgextra/…尺寸串…` 与 blackmatrix7 AllInOne 的
+# `(gw|heic).alicdn.com/imgextra/.+\d{4}-\d{4}.jpg_(9\d{2}|\d{4})`）：
+#   * `imgextra/i{id}/…<手机全屏尺寸，如 1125-2436 / 1170-2532>-…`
+#   * `imgextra/…<四位数>-<四位数>.jpg_<尺寸后缀>`（社区规则原文就是 `\d{4}-\d{4}`，形态不透明但已被实践覆盖）
 request if ${taobao_enable} == true && ${url} ~= /^https:\/\/heic\.alicdn\.com\/imgextra\/i[0-9]+\/[0-9]*\/?[A-Za-z0-9_!]+-[0-9]-(octopus|tps)-(1080|1125)-[0-9]{4}\.(jpg|png)/ then reject(404)
+request if ${taobao_enable} == true && ${url} ~= /^https:\/\/(?:gw|heic|img)\.alicdn\.com\/imgextra\/i[0-9]+\/.+(?:1080|1125|1170)-(?:2436|2532|2208)\.(?:jpg|png|heic|webp)/ then reject(404)
+request if ${taobao_enable} == true && ${url} ~= /^https:\/\/(?:gw|heic)\.alicdn\.com\/imgextra\/.+\d{4}-\d{4}\.jpg_(?:9\d{2}|\d{4})/ then reject(404)
+
+# 开屏/信息流视频素材。`cloudvideo.video.query` 只是「查」，真正取流是 `/play/`：
+# 2026-11-07 13:36 实测（闲鱼 aliplayer 7.28.80）取回
+#   cloud.video.taobao.com/play/u/{uid}/p/2/e/6/t/1/{id}.mp4?sBizCode=alimama_tuijian.mp4
+#   → video-zb.cloudvideocdn.taobao.com/…_taobao.mp4?biz=tbs_vsucai&p=cloudvideo_http_tb_seller_vsucai_publish
+# 两个域名同时托管商品详情视频，所以必须带 sBizCode=alimama / biz=tbs_vsucai 条件，不能按域拦。
+# 社区规则（huijingfei `cloud.video.taobao.com/vod/…mp4`）只写了 `/vod/`，漏 `/play/`。
+request if ${taobao_enable} == true && ${url} ~= /^https?:\/\/cloud\.video\.taobao\.com\/play\/u\/\d+\/p\/\d+\/e\/\d+\/t\/\d+\/\d+\.mp4\?sBizCode=alimama/i then reject(404)
+request if ${taobao_enable} == true && ${url} ~= /^https?:\/\/video-zb\.cloudvideocdn\.taobao\.com\/.*[?&]biz=tbs_vsucai/i then reject(404)
+
+# 广告位接口：响应净化（不 REJECT）。名单来自 blackmatrix7 AllInOne 的 reject 列表
+# （`mtop.alibaba.advertisementservice.getadv`、`mtop.etao.noah.query/.+tao_splash` 等），
+# 但本仓库统一用「200 + 空池」：开屏类接口 REJECT 会触发客户端 AdFallbackMaterial 兜底
+# （见 ../Taobao.md「开屏不可用 REJECT」）。以下两条结构确定是「一次投放 = 一个 data 容器」，
+# 故只清 data；`mtop.alibaba.mos.app.homepage.launch` 混着首页启动数据，暂不动。
+response if ${taobao_enable} == true && ${url} ~= /\/gw\/mtop\.alibaba\.advertisementservice\.getadv\//i then response.json.jq("if (.data | type) == \"object\" then .data = {} else . end")
+response if ${taobao_enable} == true && ${url} ~= /\/gw\/mtop\.etao\.noah\.query\/.*tao_splash/i then response.json.jq("if (.data | type) == \"object\" then .data = {} else . end")
 
 # 网易云音乐：广告接口（按开关生效）
 request if ${netease_enable} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\/ad\/(loading|prefetch|get|flow|materialconfig|commonconfig|config|monitor|sniffing|start|device)/ then reject(404)
@@ -261,6 +294,12 @@ request if ${netease_enable} == true && ${url} ~= /^https?:\/\/ipv[46]\.music\.1
 # 所以关掉预取比拦广告位接口更能防「Loon 关掉期间把广告下到本地」。
 # 已实测存在于 configs[]：ad_resource_preload(false) / check_preload_ad(true) /
 # ad_optimize_Preload(true) / feed_prefetch(0)。这里统一置 status=false。
+# 会员/付费内容引导弹层。`guide_center/strategy` 在 2026-11-04→11-09 日志里被调了 320 次
+# （scenes=answer_detail_page 129 次最多，source=recommend 68 次），本仓库此前只观察未处理。
+# 社区做法是整条 REJECT（blackmatrix7 的哲也插件：`URL-REGEX,^https://api.zhihu.com/guide_center/strategy,REJECT`，
+# 注释「屏蔽 - 付费回答用户营销引导」）。这里按 scenes 收窄到详情页，避免连评论列表、个人页的功能引导一起关掉。
+response if ${zhihu_purify} == true && ${url} ~= /\/guide_center\/strategy\?(?:[^#]*&)?scenes=(?:answer|article|pin)_detail_page/i then response.json.jq("{}")
+
 response if (${zhihu_enable} == true || ${zhihu_purify} == true) && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*zhihu\.com\/api\/cloud\/zhihu\/config\/all/i then response.json.jq("def disabled_keys: {\"km_httpdns_new_config_tars\":true,\"preFetchHttpDns\":true,\"httpdns_detector_use_concurrent\":true,\"httpdns_use_memory_cache\":true,\"httpdns_new_config_tars\":true,\"tarsMixAb\":true,\"sugarQuicConfig\":true,\"quic_dns_detect_enable\":true,\"quicMixAB\":true,\"quic_downgrade_enable\":true,\"quic_priority_strategy\":true,\"quic_check_health_enable\":true,\"tquic_configuration\":true,\"networkExprimentList\":true,\"tars_ab_list\":true,\"zaSetExtraRequestHeader\":true,\"ad_resource_preload\":true,\"check_preload_ad\":true,\"ad_optimize_Preload\":true,\"feed_prefetch\":true}; def disable_dns: if type == \"object\" then if has(\"whiteHosts\") then .whiteHosts = [] else . end | if has(\"isDetectorClosed\") then .isDetectorClosed = 1 else . end | if has(\"isBackupIPClosed\") then .isBackupIPClosed = 1 else . end | if has(\"isDowngradeClosed\") then .isDowngradeClosed = 0 else . end | if has(\"dnsParser\") and (.dnsParser | type) == \"object\" then .dnsParser.httpdnsEnable = 0 else . end else . end; def disable_core_dns: if type == \"object\" then .ZHHttpDnsStartupItem_PreResolveHostsSample = \"0\" | .ZHSwitchHTTPDNSFunction_switchHTTPDNS = \"0\" | .ZHSwitchHTTPDNSFunction_switchHTTPDNSNew = {ratio: 0, whiteHosts: []} | .ZHBackUpIP_Switch_Open = \"0\" | .ZHBackUpIP_Detecter_Open = \"0\" | .ZHBackUpIPDetector_Open_backupipDetector = \"0\" | .LocalDNSSetHostWhiteList = [] else . end; if (.data.configs | type) == \"array\" then .data.configs |= map( if type != \"object\" then . elif .configKey == \"coreNetworkConf_useTars\" or .configKey == \"km_coreNetworkConf_useTars\" then .configValue |= disable_core_dns | .configVersion = \"20261024.03.30.00001\" elif (disabled_keys[.configKey // \"\"] // false) == true then .status = false | .configValue |= disable_dns | .configVersion = \"20261024.03.30.00001\" else . end) else . end")
 
 # ══ 广告位 ══
@@ -357,7 +396,11 @@ request if ${netease_debug} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*mus
 response if ${netease_debug} == true && ${url} ~= /^https?:\/\/([a-z0-9-]+\.)*music\.163\.com\/[a-z]*api\/ad\/(loading|prefetch|get|flow|materialconfig|commonconfig|config)/i then script("{{scripts}}/netease-ad-probe.js?v={{version}}", {${netease_debug}}) with tag="网易云音乐广告配置探针", requires_body=true
 
 # 开屏图片与视频
-response if ${url} ~= /^https:\/\/guide-acs\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("{{scripts}}/Taobao-ads-clean.js?v={{version}}", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
+# 开屏接口的网关是轮换的：同一版 App 可能落 acs.m.taobao.com，也可能落 guide-acs.m.taobao.com。
+# 原先只写 guide-acs，acs 那一路完全不进脚本（2026-11-04→11-09 日志里 guide-acs 19 次全被 QUIC
+# 规则拒掉、TCP 直通 2 次都 Titan sniff miss，脚本一次没跑）。双写参考：
+# Y123456-hzy/GY AdBlock v6.2 的 script pattern `(?:(?:acs|guide-acs)\.m\.taobao\.com/gw/mtop\.…)`。
+response if ${url} ~= /^https:\/\/(?:guide-acs|acs)\.m\.taobao\.com\/gw\/mtop\.taobao\.(wireless\.home\.splash\.awesome\.get|cloudvideo\.video\.query)/i then script("{{scripts}}/Taobao-ads-clean.js?v={{version}}", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏净化", requires_body=true
 
 # 开屏活动（poplayer 远程模板）
 response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("{{scripts}}/Taobao-ads-clean.js?v={{version}}", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true

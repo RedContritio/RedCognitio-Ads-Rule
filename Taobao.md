@@ -46,7 +46,9 @@ com.taobao.tbpoplayer       MtopPopCheckHelper / PopLayerWebView / PopLayerWeexV
 
 | 域名 | 说明 |
 |---|---|
-| `heic.alicdn.com` | 开屏全屏图，HEIC 分发省流量，文件名含手机全屏尺寸 |
+| `heic.alicdn.com` | 开屏全屏图，HEIC 分发省流量，文件名含手机全屏尺寸；另有 `imgextra/i{id}/…-{尺寸}.jpg` 与 `imgextra/…\d{4}-\d{4}.jpg_<尺寸后缀>` 两种命名（1.0.26 补齐，来源见下「社区方案对照」） |
+| `cloud.video.taobao.com` | 开屏/信息流视频取流：`/play/u/{uid}/p/2/e/6/t/1/{id}.mp4?sBizCode=alimama_tuijian.mp4`（本机 2026-11-07 13:36 实测，闲鱼 aliplayer 7.28.80）。同域也托管商品详情视频，故规则必须带 `sBizCode=alimama` |
+| `video-zb.cloudvideocdn.taobao.com` | 上面那条的落地 CDN，路径带 `biz=tbs_vsucai`（tbs 卖家素材） |
 | `poplayer.template.alibaba.com` | poplayer 远程模板 |
 | `adashx.m.taobao.com`、`adashbc.ut.taobao.com`、`h-adashx.ut.taobao.com` | 淘系广告分析（通用规则集已覆盖） |
 | `ef-dongfeng.tanx.com`、`ifs.tanx.com` | 广告交易（通用规则集已覆盖） |
@@ -116,9 +118,28 @@ com.taobao.tbpoplayer       MtopPopCheckHelper / PopLayerWebView / PopLayerWeexV
 | `mtop.taobao.volvo.secondfloor.getconfig` | 二楼 |
 | `adash.m.taobao.com` | 广告分析 |
 
-### 未见于本包的 iOS 侧接口
+### 1.0.26 新补的接口（来自社区名单，镜像里未见对应 mtop 调用）
 
-`mtop.etao.noah.query`（含 `tao_splash`）、`mtop.alibaba.advertisementservice.getadv`、`mtop.o2o.ad.gateway.get`、`mtop.fliggy.crm.screen.*`、`mtop.taobao.idle.home.welcome`、`mtop.trip.activity.querytmsresources`
+名单来自 [blackmatrix7 AllInOne](https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rewrite/Stash/AllInOne/AllInOne.stoverride) 的 reject 段与 [GY AdBlock v6.2](https://gist.github.com/lok347/715284a45ac1667ae2ceffba6114e0be) 的 script pattern。本仓库不照抄它们的 `REJECT`（见下文「开屏不可用 REJECT」），只挑出「一次投放 = 一个 data 容器」的接口做响应净化：
+
+| 接口 | 处理 | 来源 |
+|---|---|---|
+| `mtop.alibaba.advertisementservice.getadv` | 响应 `data = {}` | blackmatrix7 AllInOne / GY AdBlock |
+| `mtop.etao.noah.query/…tao_splash` | 响应 `data = {}` | 同上（`tao_splash` 名字里直接是开屏） |
+| `mtop.taobao.wireless.home.splash.awesome.get` | 已有：`Taobao-ads-clean.js` 净化；**1.0.26 起网关双写 `(guide-acs\|acs).m.taobao.com`** | GY AdBlock 的 `(?:(?:acs\|guide-acs)\.m\.taobao\.com/…)`；原先只写 guide-acs，acs 那一路完全不进脚本 |
+
+暂不动：`mtop.alibaba.mos.app.homepage.launch`（与首页启动数据混在一起）、`mtop.o2o.ad.gateway.get`、`mtop.damai.mec.popup.get`、`mtop.film.mtopadvertiseapi.*`、`mtop.fliggy.crm.screen.*`、`mtop.trip.activity.querytmsresources` —— 结构未知，先按社区名单留着，等抓到真实响应再决定净化点。
+
+## 社区方案对照（2026-11-09）
+
+| 来源 | 内容 | 我们采纳了什么 |
+|---|---|---|
+| [blackmatrix7 · AllInOne.stoverride](https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rewrite/Stash/AllInOne/AllInOne.stoverride) | `acs.m.taobao.com/gw/mtop.…` 11 条 reject（getadv / homepage.launch / eta0_advertise / damai popup / tao_splash / taopp / fliggy / o2o.ad.gateway / idle.home.welcome / trip / wdk）；`(gw\|heic).alicdn.com/imgextra` 三条正则 | 接口名单 + `imgextra/…\d{4}-\d{4}.jpg_<尺寸>` 正则；**不采纳 REJECT 风格** |
+| [huijingfei · sr_app_ad.conf](https://raw.githubusercontent.com/huijingfei/Shadowrocket-Rules/main/sr_app_ad.conf) | `ossgw.alicdn.com/creatives-assets/`、`cloud.video.taobao.com/vod/*.mp4`、`(gw\|heic\|img).alicdn.com/imgextra/…尺寸串…`、`img.alicdn.com/imgextra/…-at…` | `imgextra` 尺寸串正则；视频素材只写了 `/vod/`（本机实测是 `/play/`，已自行补） |
+| [Y123456-hzy · GY AdBlock v6.2](https://gist.github.com/lok347/715284a45ac1667ae2ceffba6114e0be) | `force-http-engine-hosts` 把 `acs.m.taobao.com`/`guide-acs.m.taobao.com`/`poplayer.template.alibaba.com` 强行拉进 HTTP 引擎，再跑响应脚本；pattern 覆盖 `(acs\|guide-acs)` 双网关 | 网关双写；`force-http-engine` 是 Surge 专有能力，Loon 无对应，只能用「放行 QUIC 让客户端走 TCP」近似 |
+| [myouhi · ZhiHu.sgmodule](https://raw.githubusercontent.com/myouhi/Surge/master/module/ZhiHu.sgmodule) | — | 仅作 MITM 主机清单对照 |
+
+另：`cdn.ynuf.aliapp.org` 在 11-04~11-09 日志里每次启动都被请求，经核对是**阿里云验证码（NoCaptcha）资源域**（[官方 FAQ](https://help.aliyun.com/zh/captcha/captcha1-0/support/faq-about-the-web-frontend) 要求白名单放行），不是开屏素材，不拦。
 
 ## 模块
 

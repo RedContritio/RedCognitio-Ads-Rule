@@ -115,6 +115,8 @@ else . end
 |---|---|---|
 | `mtop.taobao.idlecommerce.adx.bid` (1.0) | 三方 SDK 竞价入口，参数含 `adCodeId`、`adSlotId`、`platform`、`ecpm` | 待验证，默认不拦 |
 | `mtop.taobao.idlecommerce.game.iaa.ads` | 游戏中心激励广告 | 不拦（用户主动触发） |
+| `mtop.taobao.idle.home.welcome` | 首页欢迎/引导弹窗，一次投放一个 `data` 容器 → 1.0.26 起响应清空 | 社区名单（blackmatrix7）+ 已实施 |
+| `mtop.idle.idleadv.scene.restore` | 场景恢复弹窗（启动后 restore 上次弹层）→ 1.0.26 起响应清空；同族的 `idleadv.app.launch.report` 是上报，不动 | 社区名单（huijingfei）+ 本机日志 |
 | `mtop.taobao.idle.live.home.ads.material.get` | 直播广告素材 | 待验证 |
 | `mtop.alimama.zz.ad.get` | 阿里妈妈推荐位取数（`munion.taosdk`） | 待验证 |
 | `mtop.idle.ad.click` / `.expose` / `.failed.batch.*` | 广告点击与曝光埋点 | 不拦 |
@@ -226,6 +228,9 @@ grep -c "idlecommerce" RedCognitio-Ads.plugin                        # 0 → 装
 | [carlleilzj/xianyu-rules](https://github.com/carlleilzj/xianyu-rules) | 16 条分流规则，无广告拦截 | 仅作域名参考 |
 | blackmatrix7/ios_rule_script | `rule/Loon/XianYu/XianYu.list` 只有 16 条 `DOMAIN-SUFFIX` 分流，`rewrite/` 下无闲鱼 | 社区通用规则集确实不覆盖闲鱼广告 |
 | AWAvenue-Ads-Rule | 全文检索 `goofish` / `idlefish` 命中 0 条 | 同上 |
+| [huijingfei/Shadowrocket-Rules](https://raw.githubusercontent.com/huijingfei/Shadowrocket-Rules/main/sr_app_ad.conf)（2026-11-09 复检） | `acs.m.goofish.com/gw/mtop.taobao.idlecommerce.splash` 与 `mtop.idle.idleadv.(.*)` 两条 `REJECT-DICT`；`cloud.video.taobao.com/vod/*.mp4` 素材规则 | 采纳 `idleadv` 覆盖范围（但改空池）；确认视频素材域是 `/play/` 而非 `/vod/`，社区写法漏了 |
+| [blackmatrix7 AllInOne](https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rewrite/Stash/AllInOne/AllInOne.stoverride)（同上） | `acs.m.taobao.com/gw/mtop.taobao.idle.home.welcome/` → reject | 采纳 `idle.home.welcome`（首页欢迎弹窗）做响应净化 |
+| [Y123456-hzy/GY AdBlock](https://gist.github.com/lok347/715284a45ac1667ae2ceffba6114e0be)（同上） | 闲鱼 `splash` 走响应脚本清容器；`acs.m.goofish.com` 进 `force-http-engine-hosts` | 印证「响应清洗而非 reject」的方向一致 |
 
 ### 网关主机名被社区规则修正
 

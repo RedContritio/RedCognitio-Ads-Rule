@@ -3,6 +3,7 @@
 const url = $request.url;
 const AD_TYPES = new Set([
   "feed_advert",
+  "market_card", // snake_case：哲也 isFiltered 同时认 "market_card"/"feed_advert"，接口两套命名都在用
   "short_advert",
   "externalad",
   "AdCard",
@@ -56,10 +57,37 @@ function isPromoted(item) {
     if (promotion && promotion.is_card === true) return true;
   }
 
+  // 会员活动卡不带 promotion 字段，只在 extra.type 上标 SvipActivity。
+  // 来源：哲也 isFiltered（`"SvipActivity"===e.extra?.type`），见 ../REFERENCE-CROSSCHECK-20261109.md §3.2。
+  if (String(extra.type || "") === "SvipActivity") return true;
+
   const commercial = parseObject(retrieval.commercial_promotion_rpc_extra);
   return commercial && typeof commercial === "object"
     ? Object.keys(commercial).length > 0
     : Boolean(commercial);
+}
+
+// 当前版本（知乎 iOS 11.14.0）推荐流有两条独立路径携带「这张卡是什么」与「怎么投的」：
+//   * 旧组件卡：item.extra.business_ext_map.{contentType, deliver_type}
+//   * SDUI 项：  item.unify_content.content_info.content_type 与 .biz_ext.deliver_type
+// 只读前者会漏掉 SDUI（本次日志 242 次 ZHFEED-SUSPECT 里 206 次是 content_type:missing）。
+// deliver_type 取值实测：Normal（普通）/ Paid（会员付费内容）/ ZPlus（知+ 商业推广，plugcb 带
+// adsource=zhi_plus）。检索不到任何现成规则或脚本用这个字段做判据，判据来自本机抓包：
+// ../captures/replay/20261109-review/zhihu-target-paid-answer-attached_info.txt
+const PAID_DELIVER = new Set(["paid"]);
+
+function deliverType(item) {
+  const biz = (item.extra && item.extra.business_ext_map) || {};
+  const sdui = (item.unify_content && item.unify_content.biz_ext) || {};
+  const raw = biz.deliver_type || biz.deliver || sdui.deliver_type || sdui.deliver || "";
+  return String(raw || "").toLowerCase();
+}
+
+function cardContentType(item) {
+  const biz = (item.extra && item.extra.business_ext_map) || {};
+  const info = (item.unify_content && item.unify_content.content_info) || {};
+  return String(biz.contentType || biz.content_type || info.content_type || info.contentType || "")
+    .toUpperCase();
 }
 
 function isVideo(item) {
@@ -172,12 +200,14 @@ function cardText(item) {
 }
 
 function suspicion(item) {
-  const biz = (item.extra && item.extra.business_ext_map) || {};
-  const ct = String(biz.contentType || biz.content_type || "").toUpperCase();
+  const ct = cardContentType(item);
+  const deliver = deliverType(item);
   const target = actionTarget(item.action);
   const reasons = [];
   if (ct && !CARD_PLAIN_CT.has(ct)) reasons.push("content_type:" + ct);
   if (!ct) reasons.push("content_type:missing");
+  // 付费/推广卡即使 contentType 正常也要留证：deliver_type 是当前唯一稳定标记
+  if (deliver && deliver !== "normal") reasons.push("deliver:" + deliver);
   if (target.host && !SUSPECT_HOST.test(target.host)) reasons.push("host:" + target.host);
   if (/km_paid|paid_content/i.test(target.path)) reasons.push("path:paid");
   if (SUSPECT_TEXT.test(cardText(item))) reasons.push("text:salt");
@@ -225,13 +255,13 @@ function summarizeFeed(item, verdict, reason) {
     targetKeys: Object.keys(target).slice(0, 12),
     targetType: target.type || null,
     template,
-    ct: biz.contentType || biz.content_type || null,
+    ct: cardContentType(item) || null,
     act: (() => { const t = actionTarget(action); return t.host ? t.host + t.path.slice(0, 60) : null; })(),
     action: action.type ? { type: action.type, parameter: decodeLoose(String(action.parameter || "")).replace(/^route_url=/, "").slice(0, 140) } : null,
     biz: {
-      contentType: biz.contentType || biz.content_type || null,
-      media: biz.media_type || null,
-      deliver: biz.deliver_type || null,
+      contentType: cardContentType(item) || null,
+      media: biz.media_type || ((item.unify_content && item.unify_content.content_info) || {}).media || null,
+      deliver: biz.deliver_type || ((item.unify_content && item.unify_content.biz_ext) || {}).deliver_type || null,
     },
     children: children.slice(0, 8).map((child) => (child && (child.style || child.type)) || null),
     links,
@@ -247,6 +277,10 @@ function isMemberOnly(item) {
   const paid = parseObject(answer.paid_info);
   if (answer.has_purchased === true || answer.is_purchased === true ||
     answer.is_free === true || (paid && paid.has_purchased === true)) return false;
+  // deliver_type=Paid：会员专享/付费内容的稳定标记，卡面不一定带「会员专享」文案、链接也可能是
+  // 普通 answer 地址（本次日志 answer/2064025651724514331 就是这种，文案里只有推广副标题）。
+  // 已购回答由上一条早退分支保护，不会被误删。
+  if (PAID_DELIVER.has(deliverType(item))) return true;
   if (item.type === "knowledge_ad" &&
     (answer.card_type === "knowledge_vip" ||
       /^(?:album_paid_column|paid_column_chapter)$/.test(answer.commodity_type || ""))) return true;

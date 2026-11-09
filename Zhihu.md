@@ -24,7 +24,8 @@
 |---|---|
 | 包分析 | Android 11.5.0 的接口、模型、域名及广告模板 |
 | 参考实现 | 可莉 / RuCu6 历史规则 |
-| 哲也 | [blackmatrix7 AllInOne](https://github.com/blackmatrix7/ios_rule_script/blob/master/rewrite/Surge/AllInOne/AllInOne.sgmodule) 引用的[脚本](https://gist.githubusercontent.com/blackmatrix7/f5f780d0f56b319b6ad9848fd080bb18/raw/zheye.min.js)，提供回答流与视频识别参考 |
+| 哲也 | [blackmatrix7 AllInOne](https://github.com/blackmatrix7/ios_rule_script/blob/master/rewrite/Surge/AllInOne/AllInOne.sgmodule) 引用的[脚本](https://gist.githubusercontent.com/blackmatrix7/f5f780d0f56b319b6ad9848fd080bb18/raw/zheye.min.js)，提供回答流与视频识别参考；1.0.26 另从其 `isFiltered()` 取 `market_card` / `SvipActivity` 两条类型判据，从其 [Loon 插件](https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/script/zheye/zheye.lnplugin) 取 `guide_center/strategy` 的拦截思路 |
+| 其余社区对照 | 详见 `../REFERENCE-CROSSCHECK-20261109.md`：检索过 GY AdBlock、知乎助手、myouhi 等，付费判据（`deliver_type`）无人实现，全部沿用「旧结构 + 中文文案」启发式，在本机 11.14.0 日志上命中 0 |
 | 本机 | 2026-10-23 至 24 日 iOS 抓包、Loon 日志与响应回放；25 日、29 日用户真机回测 |
 
 验证状态：**真机确认**＝用户确认页面效果；**真实回放**＝使用抓到的响应核对结果；**自动测试**＝合成样本与配置断言；**静态参考**＝包分析或历史规则核对。
@@ -52,6 +53,7 @@
 | `/search/tabs` | 净化；搜索类别白名单，移除 `zvideo` | 参考实现、用户需求 | 自动测试、命中日志 |
 | `/related_recommend/feed/waterfall`、`/search/preset_words`、`/search/related_queries/question/ID` | 净化；`200 + {}` | 参考实现 | 静态参考 |
 | `/api/vN/members/homepage_card`、`/people/homepage_entry_vN`、`/kvip/right/my_card` | 净化；`200 + {}` | 参考实现 | 静态参考 |
+| `/guide_center/strategy`（`scenes=answer\|article\|pin_detail_page`） | 净化；`200 + {}`，按 scenes 收窄 | 哲也插件 `URL-REGEX,^https://api.zhihu.com/guide_center/strategy,REJECT`（注释「屏蔽 - 付费回答用户营销引导」）+ 本机 5 天 320 次调用日志 | 自动测试 |
 | `/unlimited/go/my_card/vN`、`/unlimited/go/my_card/all` | 净化；`200 + {}` | 参考实现、本机 | 新版接口真机确认、路径测试 |
 | `zhida.zhihu.com/ai_ingress/knowledge/square/categories/feeds`、`/ai_ingress/ai_chat/guidance` | 净化；`200 + {}` | 参考实现 | 静态参考 |
 | `/search/recommend_query/vN` | 净化；推荐词只留 `type=normal` | 参考实现、哲也 | 静态参考 |
@@ -70,6 +72,10 @@
 | 正文图片与大图 | 保留图片结构段、图片地址、原图地址与尺寸；`card` 段不再无条件删除 | 本机 | 真实响应回放；2026-10-29 修复想法（pin）详情图片被整段删掉的问题 |
 | 首页视频 | 净化；按视频类型及组件识别，保留普通图片和回答详情视频 | 哲也、用户需求 | 自动测试 |
 | 会员受限列表项 | 净化；购买状态、`purchase_required`、会员提示、`KfeCollection-PurchaseBtn`，以及链接类字段里的盐选落地页（`oia.zhihu.com/km_paid_content/share`）；显式免费、已购、正文里只是引用该链接的回答保留 | 包分析、用户需求、本机 | 自动测试 |
+| 付费/会员内容标记 | 净化；`deliver_type`（组件卡 `extra.business_ext_map`、SDUI 项 `unify_content.biz_ext`）为 `Paid` 时删除；已购 / `is_free` 早退保留 | 本机抓包（answer/2064025651724514331，2026-11-09）+ `attached_info` 解码；社区无实现 | 自动测试 |
+| 知+（`ZPlus`）商业推广 | 观察；`deliver_type=ZPlus` 不删，`ZHFEED` 摘要记录 `biz.deliver`，攒够量再决定 | 本机抓包（`plugcb=…adsource=zhi_plus`）+ 知乎知+ 产品文档 | 自动测试 |
+| 卡片类型删除 | 去广告；`AD_TYPES` 增补 snake_case `market_card`，并识别 `extra.type=SvipActivity` 的会员活动卡 | 哲也 `isFiltered()`（`market_card` / `SvipActivity` 两条判据） | 自动测试 |
+| SDUI 卡片判据路径 | 净化/留证；`content_type` 从 `unify_content.content_info.content_type` 读取，`deliver_type` 从 `unify_content.biz_ext` 读取 | 本机日志（242 次 `ZHFEED-SUSPECT` 里 206 次是 `content_type:missing`）| 自动测试 |
 | 课程、盐选小说商品卡 | 净化；外层 `knowledge_ad`，内层 `knowledge_vip` 或 `album_paid_column` / `paid_column_chapter` 商品类型 | 本机 | 真机确认；20 项真实响应移除 4 张商品卡 |
 | 界面字段 | 净化；详情删 `float_search_word`、`interaction_bar_plugins`、`ring_info`，首页删 `id=ring` 子项，问题删 `roundtable_info`，搜索删 `pendant` | 参考实现、本地精简 | 详情 / 子项 / 搜索自动测试；圆桌字段为代码核对 |
 
@@ -101,6 +107,8 @@
 | 2026-11-03 | 插件 1.0.22 | 需要确认那种卡的实际字段 | 新增 `ZHFEED` 卡片摘要（仅 Debug）：逐张打 `keys`/`targetKeys`/`children`/`links`/`verdict`，用来判「链接不在 link 字段」还是「卡片走 deep link」 |
 | 2026-11-03 | 插件 1.0.24 | 真机日志里 `ZHFEED` 一张卡也命中不了盐选链接，但链接确实存在 | 卡片跳转不在 `url` 字段，而在 `action.parameter`（`route_url=https%3A%2F%2F…`，整条 URL 百分号编码）。会员判定改为「先解码再匹配」，`links` 与 `action.parameter` 都输出解码后的值 |
 | 2026-11-03 | 插件 1.0.25 | 那类卡在推荐流里随机出现，逐条复现不现实 | 加 `ZHFEED-SUSPECT`：可疑卡片自动整张留证（`contentType` 非 `ANSWER/PIN`、主机非知乎、路径含 `km_paid`、文本含盐选/付费词），不需要复现同一篇；`ZHFEED` 摘要补 `ct` 与 `act`（主机+路径） |
+| 2026-11-09 | 1.0.26 | 会员专享回答出现在推荐流：卡面没有「会员专享」文案、链接也是普通 answer 地址，旧判据全放行 | 补 `deliver_type=Paid` 判据（组件卡 + SDUI 两处路径）；`suspicion()` / `ZHFEED` 摘要也改走 SDUI 路径，`content_type:missing` 不再误报。证据：5 天日志里 answer/2064025651724514331 的 `attached_info` 解码出 `PaidAnswer` + `TS_SOURCE_PAID_TWOTOWER_SHORTINTEREST` |
+| 2026-11-09 | 插件 1.0.26 | 会员引导弹层没处理 | 新增 `/guide_center/strategy` 按 `scenes=*_detail_page` 回 `{}`（哲也整条 REJECT，这里收窄到详情页）；`AD_TYPES` 补 `market_card`、`isPromoted()` 补 `SvipActivity` |
 
 两次都属于「去广告规则误伤正文」，判定标准已经收窄为：**标记为广告才删，其余一律保留**。想法详情的图片若挂在非 card 段，仍需打开 Debug 合集的「知乎-调试」抓 `pins/v2/{id}` 响应再定位。
 

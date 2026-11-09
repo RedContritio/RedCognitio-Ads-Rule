@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-const url = $request.url, AD_TYPES = new Set([ "feed_advert", "short_advert", "externalad", "AdCard", "ZhiPlusCard", "BusinessCard", "MarketCard", "RecommendedProductsCard" ]), AD_STYLE = /^(plutus_card_|brand_card_)/, DETAIL_URL = /(?:api\/)?(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+/, FEED_URL = /\/topstory\/recommend/, NEXT_RENDER_URL = /\/(?:simple-)?next-render(?:\?|$)/, QUESTION_URL = /\/(?:api\/)?(?:v[0-9]+\/)?questions\/[0-9]+(?:\/|\?|$)/, SEARCH_URL = /\/search_v[0-9]+(?:\?|$)/;
+const url = $request.url, AD_TYPES = new Set([ "feed_advert", "market_card", "short_advert", "externalad", "AdCard", "ZhiPlusCard", "BusinessCard", "MarketCard", "RecommendedProductsCard" ]), AD_STYLE = /^(plutus_card_|brand_card_)/, DETAIL_URL = /(?:api\/)?(?:v[0-9]+\/)?(?:answers|articles|pins)(?:\/v[0-9]+)?\/[0-9]+/, FEED_URL = /\/topstory\/recommend/, NEXT_RENDER_URL = /\/(?:simple-)?next-render(?:\?|$)/, QUESTION_URL = /\/(?:api\/)?(?:v[0-9]+\/)?questions\/[0-9]+(?:\/|\?|$)/, SEARCH_URL = /\/search_v[0-9]+(?:\?|$)/;
 
 let arg = $argument;
 
@@ -31,9 +31,12 @@ function isPromoted(item) {
         const promotion = parseObject(value);
         if (promotion && !0 === promotion.is_card) return !0;
     }
+    if ("SvipActivity" === String(extra.type || "")) return !0;
     const commercial = parseObject(retrieval.commercial_promotion_rpc_extra);
     return commercial && "object" == typeof commercial ? Object.keys(commercial).length > 0 : Boolean(commercial);
 }
+
+const PAID_DELIVER = new Set([ "paid" ]);
 
 function isVideo(item) {
     const info = (item.unify_content || {}).content_info || {}, extra = item.extra || {}, target = item.target || {}, types = [ item.type, item.style, item.content_type, extra.content_type, info.content_type, target.type, target.answer_type, extra.answer_type ];
@@ -78,6 +81,10 @@ function isMemberOnly(item) {
     if (hasPaidShare(item)) return !0;
     const type = String(answer.type || answer.content_type || answer.producer || "").toLowerCase(), paid = parseObject(answer.paid_info);
     if (!0 === answer.has_purchased || !0 === answer.is_purchased || !0 === answer.is_free || paid && !0 === paid.has_purchased) return !1;
+    if (PAID_DELIVER.has(function(item) {
+        const biz = item.extra && item.extra.business_ext_map || {}, sdui = item.unify_content && item.unify_content.biz_ext || {}, raw = biz.deliver_type || biz.deliver || sdui.deliver_type || sdui.deliver || "";
+        return String(raw || "").toLowerCase();
+    }(item))) return !0;
     if ("knowledge_ad" === item.type && ("knowledge_vip" === answer.card_type || /^(?:album_paid_column|paid_column_chapter)$/.test(answer.commodity_type || ""))) return !0;
     if (answer.label_info && "purchase_required" === answer.label_info.type) return !0;
     const paidType = /^(?:paid_content|paid_column|paid_column_sku|album)$/.test(type);

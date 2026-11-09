@@ -805,3 +805,80 @@ test("network rewrite disables new and legacy IP substitution without deleting c
     }
   }
 });
+
+// 判据来源：本机 2026-11-04→11-09 日志的 answer/2064025651724514331（会员专享回答进推荐流）。
+// 卡片两条路径都带 deliver_type=Paid：组件卡在 extra.business_ext_map，SDUI 项在 unify_content.biz_ext。
+// 社区规则（哲也 / 知乎助手 / GY AdBlock）都没有用这个字段，判据由抓包确认，见 REFERENCE-CROSSCHECK-20261109.md。
+test("deliver_type 判付费：组件卡与 SDUI 项同判，已购与免费回答保留", () => {
+  const paidCard = { id: "paid", type: "ComponentCard", style: "card_padding_dynamic_GBK99A_V3",
+    action: { type: "Route", parameter: "route_url=https%3A%2F%2Fzhihu.com%2Fquestion%2F1983323859353616532%2Fanswer%2F2064025651724514331" },
+    extra: { business_ext_map: { contentType: "ANSWER", media_type: "IMAGE_TEXT", deliver_type: "Paid" } },
+    children: [{ style: "text_recommend_title", text: "12 条内容让你眼界大开，不要错过哦" }] };
+  const sduiPaid = { id: "sdui-paid", type: "sdui",
+    unify_content: { content_info: { content_id: "791188065", content_token: "2064025651724514331", content_type: "ANSWER" },
+      biz_ext: { deliver_type: "Paid" } } };
+  const sduiNormal = { id: "sdui-normal", type: "sdui",
+    unify_content: { content_info: { content_id: "803622137", content_type: "ANSWER" }, biz_ext: { deliver_type: "Normal" } } };
+  // 知+ 商业推广：默认不删（观察项），但要进留证
+  const sduiZplus = { id: "sdui-zplus", type: "sdui",
+    unify_content: { content_info: { content_id: "2076627069597922472", content_type: "ANSWER" }, biz_ext: { deliver_type: "ZPlus" } } };
+  const purchased = { id: "bought", type: "answer",
+    extra: { business_ext_map: { deliver_type: "Paid" } },
+    target: { type: "answer", id: 3, paid_info: { has_purchased: true } } };
+  const free = { id: "free", type: "answer", target: { type: "answer", id: 4, is_free: true } };
+  const body = { data: [paidCard, sduiPaid, sduiNormal, sduiZplus, purchased, free], paging: { is_end: false } };
+  const url = "https://api.zhihu.com/topstory/recommend";
+  const logs = [];
+  assert.deepEqual(clean(body, { url, logs, argument: { zhihu_purify: true, zhihu_debug: true } }),
+    { data: [sduiNormal, sduiZplus, purchased, free], paging: body.paging });
+
+  const feed = JSON.parse(logs.find(line => line.startsWith("ZHFEED ")).slice(7));
+  assert.deepEqual(feed.cards.map(card => [card.id, card.verdict]),
+    [["paid", "dropped"], ["sdui-paid", "dropped"], ["sdui-normal", "kept"], ["sdui-zplus", "kept"],
+      ["bought", "kept"], ["free", "kept"]]);
+  // SDUI 项的 contentType / deliver 从 unify_content 读出，不再落成 null
+  assert.deepEqual(feed.cards[2].biz, { contentType: "ANSWER", media: null, deliver: "Normal" });
+
+  // 留证理由：留下的知+ 卡带 deliver:zplus，且不再误报 content_type:missing（contentType 从 SDUI 读出）
+  const suspects = logs.filter(line => line.startsWith("ZHFEED-SUSPECT "))
+    .map(line => JSON.parse(line.slice("ZHFEED-SUSPECT ".length)));
+  const zplusReasons = suspects.find(item => item.id === "sdui-zplus").reasons;
+  assert(zplusReasons.includes("deliver:zplus"));
+  assert(!zplusReasons.includes("content_type:missing"));
+});
+
+// 来源：哲也 zheye.min.js isFiltered（`"market_card"===e.type`、`"SvipActivity"===e.extra?.type`）。
+// 本机日志里 feed_advert 卡已被 AD_TYPES 覆盖，market_card 与 SvipActivity 在旧判据下漏放。
+test("下划线命名的 market_card 与会员活动卡按类型整条删除", () => {
+  const body = { data: [
+    { id: "m", type: "market_card", target: { id: 9 } },
+    { id: "s", type: "answer", extra: { type: "SvipActivity" }, target: { type: "answer", id: 5 } },
+    { id: "keep", type: "answer", target: { type: "answer", id: 6 } },
+  ] };
+  const url = "https://api.zhihu.com/topstory/recommend";
+  assert.deepEqual(clean(body, { url, argument: { zhihu_purify: true } }),
+    { data: [{ id: "keep", type: "answer", target: { type: "answer", id: 6 } }] });
+  // 关闭去广告时只做会员净化，不删这两类卡
+  assert.deepEqual(clean(body, { url, argument: { zhihu_enable: false, zhihu_purify: true } }), body);
+});
+
+// 来源：哲也 zheye.lnplugin `URL-REGEX,^https://api.zhihu.com/guide_center/strategy,REJECT`
+// （注释「屏蔽 - 付费回答用户营销引导」）。本仓库按 scenes 收窄，避免关掉评论列表/个人页的功能引导。
+test("会员引导接口只拦详情页 scenes，其余引导放行", () => {
+  for (const filename of variants) {
+    const lines = fs.readFileSync(path.join(__dirname, "..", filename), "utf8").split("\n");
+    const rule = lines.find(line => line.includes("guide_center") && line.includes("response.json.jq("));
+    assert(rule, filename);
+    const expression = new RegExp(rule.match(/~= \/(.*?)\/i then/)[1], "i");
+    const detail = "https://api.zhihu.com/guide_center/strategy?content_id=2064025651724514331&content_type=answer&launch_id=1794191035719&scenes=answer_detail_page&source=recommend";
+    assert(expression.test(detail), filename);
+    assert(expression.test("https://api.zhihu.com/guide_center/strategy?scenes=article_detail_page"), filename);
+    assert(expression.test("https://api.zhihu.com/guide_center/strategy?scenes=pin_detail_page"), filename);
+    assert(!expression.test("https://api.zhihu.com/guide_center/strategy?scenes=comment_list_page"), filename);
+    assert(!expression.test("https://api.zhihu.com/guide_center/strategy"), filename);
+    const program = JSON.parse(rule.slice(rule.indexOf("response.json.jq(") + 17, -1));
+    const result = spawnSync("jq", ["-c", program], { input: JSON.stringify({ data: [{ id: 1 }], strategy: {} }), encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {});
+  }
+});
