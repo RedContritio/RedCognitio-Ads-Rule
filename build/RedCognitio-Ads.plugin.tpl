@@ -405,6 +405,14 @@ response if ${url} ~= /^https:\/\/(?:guide-acs|acs)\.m\.taobao\.com\/gw\/mtop\.t
 # 开屏活动（poplayer 远程模板）
 response if ${url} ~= /^https:\/\/poplayer\.template\.alibaba\.com\/\w+\.json/i then script("{{scripts}}/Taobao-ads-clean.js?v={{version}}", {${taobao_debug}}) with enable=${taobao_enable}, tag="淘宝开屏活动净化", requires_body=true
 
+# 结构未知的淘宝广告接口：只抓不发（仅 Debug 构建）。
+# 名单来自 blackmatrix7 AllInOne 的 reject 段与 GY AdBlock 的 pattern；它们一律 REJECT，
+# 本仓库统一「200 + 空池」，所以要先抓到真实 data 容器再定净化点（理由见 ../Taobao.md）。
+# 网关在 [MITM] 内：2026-11-04→11-09 日志里 acs.m.taobao.com 解密 29 次、acs.m.goofish.com 18 次；
+# guide-acs.m.taobao.com 例外（19 次 QUIC 被拒、2 次 TCP 未解析），那条链路抓不到。
+request if ${taobao_debug} == true && ${url} ~= /\/gw\/mtop\.(?:alibaba\.mos\.app\.homepage\.launch|o2o\.ad\.gateway\.get|damai\.mec\.popup\.get|film\.mtopadvertiseapi\.[a-z]+|fliggy\.crm\.screen\.[a-z]+|trip\.activity\.querytmsresources|alibaba\.advertisementservice\.getadv|etao\.noah\.query|taobao\.idle\.home\.welcome|idle\.idleadv\.[a-z.]+)\//i then script("{{scripts}}/Taobao-ads-dump.js?v={{version}}", {${taobao_debug}}) with tag="淘宝广告接口请求诊断"
+response if ${taobao_debug} == true && ${url} ~= /\/gw\/mtop\.(?:alibaba\.mos\.app\.homepage\.launch|o2o\.ad\.gateway\.get|damai\.mec\.popup\.get|film\.mtopadvertiseapi\.[a-z]+|fliggy\.crm\.screen\.[a-z]+|trip\.activity\.querytmsresources|alibaba\.advertisementservice\.getadv|etao\.noah\.query|taobao\.idle\.home\.welcome|idle\.idleadv\.[a-z.]+)\//i then script("{{scripts}}/Taobao-ads-dump.js?v={{version}}", {${taobao_debug}}) with tag="淘宝广告接口响应抓取", requires_body=true
+
 # 不拦：首页主数据 / 推荐流 / newface 首页 / 商品详情 / 购物车 / 订单 / 搜索 /
 #       mtop 网关 / 会场 H5 / gw.alicdn.com 商品图 / dinamicx 弹窗模板
 

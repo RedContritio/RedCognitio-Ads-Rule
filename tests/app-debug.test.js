@@ -34,6 +34,7 @@ test("debug is default-off, accepts object and JSON arguments and stays isolated
     ["netease-ad-probe.js", "netease_debug", "https://music.163.com/eapi/ad/config", '{"code":200,"data":{"enable":true}}'],
     ["zhihu-dump.js", "zhihu_debug", "https://api.zhihu.com/answers/v2/123", '{"id":123}'],
     ["zhihu-dump-req.js", "zhihu_debug", "https://api.zhihu.com/answers/v2/123", ""],
+    ["Taobao-ads-dump.js", "taobao_debug", "https://acs.m.taobao.com/gw/mtop.o2o.ad.gateway.get/1.0/", '{"data":{}}'],
   ];
   for (const [script, key, url, body] of cases) {
     const otherApps = Object.fromEntries(["zhihu_debug", "taobao_debug", "netease_debug"].filter(k => k !== key).map(k => [k, true]));
@@ -168,5 +169,43 @@ test("Netease debug URL guard matches API hosts and excludes unrelated traffic",
     const expression = new RegExp(rule.match(/~= \/(.*?)\/i then/)[1], "i");
     for (const url of ["https://music.163.com/eapi/batch", "https://interface.music.163.com/api/song/detail", "https://music.163.com/xeapi/ad/loading/judge"]) assert(expression.test(url), file);
     for (const url of ["https://music.163.com.evil.test/api/batch", "https://taobao.com/eapi/batch", "https://music.163.com/song?id=1", "https://p1.music.126.net/cover.jpg"]) assert(!expression.test(url), file);
+  }
+});
+
+// 结构未知的淘宝广告接口：Debug 构建带抓取路由，Release 构建整行剥掉。
+test("淘宝未知广告接口的抓取路由只出现在 Debug，且只命中广告接口名单", () => {
+  const candidates = [
+    "https://acs.m.taobao.com/gw/mtop.alibaba.mos.app.homepage.launch/1.0/?data=%7B%7D",
+    "https://acs.m.taobao.com/gw/mtop.o2o.ad.gateway.get/1.0/",
+    "https://acs.m.taobao.com/gw/mtop.damai.mec.popup.get/1.0/",
+    "https://acs.m.taobao.com/gw/mtop.film.mtopadvertiseapi.queryadvertise/1.0/",
+    "https://acs.m.taobao.com/gw/mtop.fliggy.crm.screen.allresource/1.0/",
+    "https://acs.m.taobao.com/gw/mtop.trip.activity.querytmsresources/1.0/",
+    "https://acs.m.taobao.com/gw/mtop.alibaba.advertisementservice.getadv/1.0/",
+    "https://acs.m.taobao.com/gw/mtop.etao.noah.query/1.0/",
+    "https://acs.m.goofish.com/gw/mtop.taobao.idle.home.welcome/1.0/",
+    "https://acs.m.goofish.com/gw/mtop.idle.idleadv.scene.restore/1.0/",
+  ];
+  const unrelated = [
+    "https://acs.m.taobao.com/gw/mtop.taobao.wireless.home.awesome.get/1.0/",
+    "https://acs.m.taobao.com/gw/mtop.common.getTimestamp/1.0/",
+    "https://acs.m.goofish.com/gw/mtop.taobao.idlehome.home.nextfresh/8.0/",
+    "https://guide-acs.m.taobao.com/gw/mtop.taobao.wireless.home.splash.awesome.get/1.0/",
+  ];
+  for (const file of plugins) {
+    const lines = fs.readFileSync(path.join(root, file), "utf8").split("\n")
+      .filter(line => line.includes("Taobao-ads-dump.js"));
+    assert.equal(lines.length, 2, file);
+    assert(lines.some(line => line.startsWith("request if")), file);
+    assert(lines.some(line => line.startsWith("response if") && line.includes("requires_body=true")), file);
+    for (const line of lines) {
+      const expression = new RegExp(line.match(/~= \/(.*?)\/i then/)[1], "i");
+      for (const url of candidates) assert(expression.test(url), `${file}: ${url}`);
+      for (const url of unrelated) assert(!expression.test(url), `${file}: ${url}`);
+    }
+  }
+  for (const file of ["RedCognitio-Ads.plugin", "RedCognitio-Ads-ghproxy.plugin", "RedCognitio-Ads-jsdelivr.plugin"]) {
+    const release = fs.readFileSync(path.join(root, file), "utf8");
+    assert(!release.includes("Taobao-ads-dump.js"), file);
   }
 });

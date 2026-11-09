@@ -128,7 +128,9 @@ com.taobao.tbpoplayer       MtopPopCheckHelper / PopLayerWebView / PopLayerWeexV
 | `mtop.etao.noah.query/…tao_splash` | 响应 `data = {}` | 同上（`tao_splash` 名字里直接是开屏） |
 | `mtop.taobao.wireless.home.splash.awesome.get` | 已有：`Taobao-ads-clean.js` 净化；**1.0.26 起网关双写 `(guide-acs\|acs).m.taobao.com`** | GY AdBlock 的 `(?:(?:acs\|guide-acs)\.m\.taobao\.com/…)`；原先只写 guide-acs，acs 那一路完全不进脚本 |
 
-暂不动：`mtop.alibaba.mos.app.homepage.launch`（与首页启动数据混在一起）、`mtop.o2o.ad.gateway.get`、`mtop.damai.mec.popup.get`、`mtop.film.mtopadvertiseapi.*`、`mtop.fliggy.crm.screen.*`、`mtop.trip.activity.querytmsresources` —— 结构未知，先按社区名单留着，等抓到真实响应再决定净化点。
+**暂不动，但已接上抓取**：`mtop.alibaba.mos.app.homepage.launch`（与首页启动数据混在一起）、`mtop.o2o.ad.gateway.get`、`mtop.damai.mec.popup.get`、`mtop.film.mtopadvertiseapi.*`、`mtop.fliggy.crm.screen.*`、`mtop.trip.activity.querytmsresources`。结构未知就不该盲写净化点，所以 1.0.27 给它们接了 Debug 抓取路由（`scripts/Taobao-ads-dump.js`，`taobao_debug` 开时输出 `TBADUMP-*`），抓到一轮真实响应后再定 `data` 容器。
+
+网关解密前提已经核对过（2026-11-04→11-09 本机日志）：`acs.m.taobao.com` 命中 `Match MITM host` **29 次**、`acs.m.goofish.com` **18 次**、`poplayer.template.alibaba.com` 4 次、`heic.alicdn.com` 9 次 —— 这些 mtop 都能抓到。例外是 `guide-acs.m.taobao.com`：**0 次解密**（19 次 QUIC 被 `AND,((DOMAIN-SUFFIX,taobao.com),(PROTOCOL,QUIC))` 拒掉、2 次 TCP 是 `Titan sniff miss`），所以开屏主链路只能靠 §社区方案对照 里 GY AdBlock 的 `force-http-engine` 思路在 Loon 侧另找等价物。盒马 `acs-m.freshippo.com`、飞猪自有域不在 `[MITM]` 内，本次日志也没出现过，先不扩。
 
 ## 社区方案对照（2026-11-09）
 
@@ -143,6 +145,14 @@ com.taobao.tbpoplayer       MtopPopCheckHelper / PopLayerWebView / PopLayerWeexV
 
 ## 模块
 
-合集插件内的淘宝段落（路径级 + 响应净化，需 MITM，Loon 3.5.1+）、`scripts/Taobao-ads-clean.js`
+合集插件内的淘宝段落（路径级 + 响应净化，需 MITM，Loon 3.5.1+）、`scripts/Taobao-ads-clean.js`、`scripts/Taobao-ads-dump.js`（仅 Debug 构建）
 
-。淘宝-调试默认关闭；开启后输出 `TBCLEAN` 净化结果与 JSON 解析错误，随开屏及 poplayer 响应净化执行。
+淘宝-调试默认关闭；开启后：
+
+| 前缀 | 来源脚本 | 内容 |
+|---|---|---|
+| `TBCLEAN` | `Taobao-ads-clean.js` | 开屏 / poplayer 响应净化结果与 JSON 解析错误 |
+| `TBADUMP-REQ` | `Taobao-ads-dump.js` | 结构未知广告接口的请求行（host + mtop 名/版本），只打不发 |
+| `TBADUMP-BEGIN` / `TBADUMP-<offset>` / `TBADUMP-END` | 同上 | 响应体按 1200 字符切段，含 status / len / content-type |
+
+抓取名单：`alibaba.mos.app.homepage.launch`、`o2o.ad.gateway.get`、`damai.mec.popup.get`、`film.mtopadvertiseapi.*`、`fliggy.crm.screen.*`、`trip.activity.querytmsresources`、`alibaba.advertisementservice.getadv`、`etao.noah.query`、`taobao.idle.home.welcome`、`idle.idleadv.*`。Release 构建不包含这个脚本与对应路由。
