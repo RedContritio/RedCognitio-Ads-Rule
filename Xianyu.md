@@ -1,6 +1,6 @@
 # 闲鱼 广告拦截
 
-样本 `com.taobao.idlefish` 7.27.96.8（versionCode 528，targetSdk 35，2026-10 取包）。取包方式：APKPure XAPK（base 60 MB + `config.arm64_v8a` 325 MB），apktool 3.0.3 解资源、jadx 1.5.6 反编译 10 个 dex。
+样本 `com.taobao.idlefish` **7.28.86.1（versionCode 529）**（2026-11-09 取包，`samples/xianyu/xianyu-7.28.86.1.xapk`，391,028,599 B）；历史样本 7.27.96.8（versionCode 528，targetSdk 35，2026-10 取包）。取包方式：APKPure XAPK（base 60 MB + `config.arm64_v8a` 325 MB），apktool 3.0.3 解资源、jadx 1.5.6 反编译 10 个 dex。
 
 iOS 与 Android 共用同一套 mtop 接口（广告下发是服务端能力），规则按路径匹配，不依赖 Android 侧实现。
 
@@ -216,6 +216,24 @@ grep -c "idlecommerce" RedCognitio-Ads.plugin                        # 0 → 装
 3. 冷启动 3 次，确认 `idlecommerce.splash.ads` 与 `.async.ads` 的实际 host、请求体 `dspList`、响应 `adMap` 结构。
 4. 装规则后清一次 App 缓存，再冷启动 3~5 次，确认开屏消失且首页、详情、搜索、消息、交易正常。
 5. 若开屏仍在：先看 `splash.ads` 是否命中 rewrite；再看是否只剩三方 SDK 直投（此时补域名段）。
+
+### 7.27.96.8 → 7.28.86.1 的开屏差异（2026-11-09 复核）
+
+用同样方法取到 7.28.86.1（`cms/app_version` 接口 + `pbdump` 读 `version_list[].9`），比对结论：
+
+| 项 | 结果 |
+|---|---|
+| `SplashAdController` 方法集合 | **与 7.27 完全一致**（方法签名 diff 为空） |
+| 开屏接口 | 仍是 `mtop.taobao.idlecommerce.splash.ads`（2.0，版本改成 `DinamicExpression.currentVersion` 动态表达式）与 `splash.async.ads`（1.0） |
+| 新增 `mtop.taobao.idlecommerce.splash.config`（1.0） | **只被 `com.taobao.idlefish.web.plugin.WVPrivacyManagerPlugin` 调用**（WebView 隐私插件，`needLogin=true`），与原生开屏无关 |
+| `SplashAdConfig`（click/shake/slide/area） | 两个版本都有 |
+| 新增类 | `SplashAdAssetManager`、`MD5CacheFileCheck`、多种 trigger（`AbsBaseTrigger` / `AbsSlideTrigger` / `OriMultiAzimuth|Pitch|Roll`…） |
+
+**结论：开屏链路与包版本无关。** iOS 上抓不到 `splash.ads` 请求，只可能是传输层（ANet 长连接 / QUIC）或本地缓存（MtopCachePrefetch / MMKV 素材），不是"只有 iOS 被喂了新版本"。
+
+AB 侧佐证：`AB_NEW_SPLASH_AD` 的 `[0,999999]` 分组同时给 `android_on=true` 与 `ios_on=true`（两端全量），而 `AB_NEW_SPLASH_AD_V2`、`AB_SPLASH_AD_NEW_PLAYER` **只有 `android_on`** —— 安卓比 iOS 还多两档。
+
+---
 
 ## 包内静态分析：开屏开关在哪（2026-11-09）
 
