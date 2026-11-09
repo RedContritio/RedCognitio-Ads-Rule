@@ -450,6 +450,14 @@ response if ${duolingo_debug} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9.-]*du
 #   （SplashAdPrefetchSwitch），AB 走 `mtop.alibaba.motu.ab.config.get`。
 # Orange 的 `orange-dc.m.taobao.com/api/config` 是 ANet preset host（长连接），日志里只有 DNS；
 # AB 是 mtop/HTTPS，理论上可改写响应——先抓一轮看真实结构再写 jq。
+# 闲鱼 AB 实验分配（仅 Debug 构建）。1.0.30 把 abtest.alibaba.com 加进 MITM 后，
+# 2026-11-09 15:15 日志里第一次看到明文：`https://abtest.alibaba.com/v4.0/api/experiment/allocate`
+# （闲鱼 UA，约每 10 秒一次）。它是普通 HTTPS，**是「AB 闸」最可能的可改写入口**——
+# 开屏预取闸 SplashAdPrefetchSwitch 走 PABTest，若实验值由这里下发，改响应即可关掉预取。
+# 先抓一轮看实验列表里有没有 SPLASH_AD_PREFETCH / is_on。
+request if ${xianyu_debug} == true && ${url} ~= /^https:\/\/abtest\.alibaba\.com\/v[0-9.]+\/api\/experiment\/allocate/i then script("{{scripts}}/xianyu-debug.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼 AB 实验分配请求"
+response if ${xianyu_debug} == true && ${url} ~= /^https:\/\/abtest\.alibaba\.com\/v[0-9.]+\/api\/experiment\/allocate/i then script("{{scripts}}/xianyu-dump.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼 AB 实验分配抓取", requires_body=true
+
 request if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.(?:alibaba\.motu\.ab\.config\.get|taobao\.idle\.ab\.config\.get|taobao\.idle\.mach\.advertise\.[a-z.]+|taobao\.idle\.play\.ad\.event\.[a-z]+|taobao\.idlehome\.home\.pop\.interest\.upload|taobao\.idle\.rule\.config|com\.taobao\.idle\.user\.init|idle\.idleadv\.[a-z.]+|taobao\.idlehome\.home\.(?:config|circle\.list|firstdata))\//i then script("{{scripts}}/xianyu-debug.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼开关面请求诊断"
 response if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.(?:alibaba\.motu\.ab\.config\.get|taobao\.idle\.ab\.config\.get|taobao\.idle\.mach\.advertise\.[a-z.]+|taobao\.idle\.play\.ad\.event\.[a-z]+|taobao\.idlehome\.home\.pop\.interest\.upload|taobao\.idle\.rule\.config|com\.taobao\.idle\.user\.init|idle\.idleadv\.[a-z.]+|taobao\.idlehome\.home\.(?:config|circle\.list|firstdata))\//i then script("{{scripts}}/xianyu-dump.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼开关面响应抓取", requires_body=true
 
