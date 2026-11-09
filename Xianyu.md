@@ -235,6 +235,25 @@ AB 侧佐证：`AB_NEW_SPLASH_AD` 的 `[0,999999]` 分组同时给 `android_on=t
 
 ---
 
+### 更正：看不见的原因不是"广告走特殊通道"，而是 ANet 默认就不带 SNI
+
+把三份正常浏览日志的 ALPN 统计拉出来对一下：
+
+| 日志 | 可见的闲鱼 mtop | `alpn:h2,http/1.1` | `alpn:http/1.1` | `alpn:`（**空**） |
+|---|---|---|---|---|
+| 15:21（43 s） | 4 种 | 42 | 26 | 10 |
+| 15:28（33 s） | 4 种 | 53 | 37 | 13 |
+| 16:00（90 s） | 5 种 | 98 | 61 | 36 |
+
+两条硬事实：
+
+1. 正常浏览时，可见的 mtop 只有 `rule.config` / `user.init` / `idleadv.app.launch.report` / `getTimestamp`（偶尔多一个 `user.action.strategy`）——**首页 `nextfresh`、详情、搜索一条都没有**；
+2. **没有任何一条连接是 `alpn:spdy/3.1`**，反而有大量 `alpn:` 为空的连接 —— 说明不可见的那部分不是"spdy over TLS"，而是**连 SNI/ALPN 都没有的 IP 直连**（ANet 自定义协议），Loon 只能 Titan sniff miss。
+
+所以「厂商为了一条广告去暴露云控」这个假设站不住 —— 真实情况是 **ANet 默认就把业务流量放在 IP 直连上，跟广告无关**。同理，`DOMAIN,acs.m.goofish.com,REJECT` 拦的只是"按域名"那一小部分，App 用 AMDC 缓存下来的 IP 照样连，所以它既拦不稳广告，也不是"请求看不见"的原因。
+
+---
+
 ## 请求为什么看不见：域名是写死的，IP 是 AMDC 发的（1.0.36）
 
 用户质疑得对——包里不可能全动态。7.28.86 检索结果：
