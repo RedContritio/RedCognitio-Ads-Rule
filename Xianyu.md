@@ -239,18 +239,21 @@ AB 侧佐证：`AB_NEW_SPLASH_AD` 的 `[0,999999]` 分组同时给 `android_on=t
 
 Loon 的 `[Rule]` 段不支持 `if ${switch} == true`，所以这条实验只能做成构建级开关：模板里用 `# @debug-only-begin` / `# @debug-only-end` 包住，`tools/build.mjs` 的 `applyDebugOnlyBlocks()` 负责 Release 整段剥掉、Debug 保留。
 
-**2026-11-09 15:46 实测结果（结论：行不通，已默认注释掉）**：
+**2026-11-09 15:46 实测结果（结论：探针无效，但暴露了更重要的事实）**：
 
 ```
 15:46:33.984  Reject domain:acs.m.goofish.com in DNS phase   （共 4 次）
 ```
 
 - 规则确实生效（DNS 阶段拒绝，不是 `match policy:REJECT`）；
-- 但闲鱼**没有**回落到 `acs.m.taobao.com` —— 那条只跑 `mtop.common.getTimestamp`（18 次）；
-- 业务接口全灭：整份日志 mtop 只有 `getTimestamp` 一种，其余全是 `atoken` / `amdc` / `experiment/allocate` 的 10 秒重试；
-- 表现就是「连首页都加载不出来」，自然也没有开屏。
+- **App 全程正常使用**（用户正常浏览），`h-adashx.ut.taobao.com/upload` 仍有 19 次曝光上报；
+- 但可解密的 mtop 只剩 `mtop.common.getTimestamp` 18 次，其余业务请求一条都看不到；
+- 同期的「不可见连接」很密：`203.119.238.12:443` ×32、`14.29.63.50:443` ×16、`14.29.63.51` ×13、`59.82.9.32` ×17，全部 `Titan sniff miss`；
+- `msgacs.m.taobao.com` 也有 18 次 `Titan sniff miss`。
 
-所以 `acs.m.goofish.com` 是闲鱼**唯一**业务网关，拿它做「逼出 splash 请求」的探针不成立，只能当「断网对照」用。要验证「开屏请求是否被本地缓存吃掉」，正确的对照是**重装闲鱼**（清掉 MMKV / prefetch 缓存）后首次冷启动，而不是断网关。
+**真正的结论：闲鱼主业务走 IP 直连 / ANet 长连接，域名拦截拦不住它（会自己绕过），所以拿「拒域名」做探针不成立。** 这也解释了为什么历次日志里从未出现过 `idlehome.home.nextfresh`（首页主数据）——它一直在不可见通道里，只有少量启动期接口（`rule.config` / `user.init` / `idleadv.app.launch.report`）落在命名主机上被解密。
+
+要区分「开屏请求被长连接藏了」还是「本地缓存命中」，正确的对照是**重装闲鱼**（清掉 MMKV / prefetch 缓存）后首次冷启动，而不是断网关。
 
 ---
 
