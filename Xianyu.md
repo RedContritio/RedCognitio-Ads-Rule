@@ -235,6 +235,22 @@ AB 侧佐证：`AB_NEW_SPLASH_AD` 的 `[0,999999]` 分组同时给 `android_on=t
 
 ---
 
+### 观察期结论（2026-11-09，1.0.39 一轮即出结果）
+
+**整域 ban `acs.m.goofish.com` 无效**：1.0.39 带这条规则跑了一轮，开屏广告照常出现。
+
+结论链条闭合：
+
+1. 广告数据不经过这台网关（否则 ban 就该拦住）；
+2. 结合 15:46 的对照（ban 后 App 仍可用、可见 mtop 只剩 `getTimestamp`）→ 广告走 **AMDC 下发的 IP 直连**（无 SNI/ALPN，Loon 不解析）；
+3. 因此整域 ban 拿不到任何收益，反而会掐掉 `com.taobao.idle.user.init`、`mtop.alibaba.emas.publish.update.get` 这类中性/正面接口。
+
+**1.0.40 已撤回这条规则**（模板里保留一行注释，需要做对照实验时手工加回）。
+
+网络层对闲鱼开屏的结论到此确定：**能看的只有命名主机上那几个启动期接口；开屏数据在不可见通道，Loon 侧无法拦截也无法净化。** 剩下只有客户端方案（覆盖 `SplashAdController` 入口，或越狱把 `MtopConfigStore` 的 `enableSpdy` 置 false 让 mtop 回短连接）。
+
+---
+
 ### 观察期配置（1.0.39 起，跑 1–2 周）
 
 决定：**保留整域 ban，撤掉调查期所有额外 MITM 与抓取**，先按长期配置跑一段。

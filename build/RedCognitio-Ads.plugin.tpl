@@ -154,14 +154,12 @@ AND,((DOMAIN-SUFFIX,goofish.com),(PROTOCOL,QUIC)),REJECT
 # 但闲鱼**不会**回落到 acs.m.taobao.com（那条只跑 mtop.common.getTimestamp），
 # 业务接口全灭、连首页都加载不出来。也就是说 `acs.m.goofish.com` 是闲鱼唯一业务网关，
 # 用它来「逼出 splash 请求」行不通，只能当「断网对照」用。
-# 闲鱼业务网关整域拒（1.0.39 起常驻，Release 也带；2026-11-09 决定先跑 1–2 周观察）。
-# 背景：闲鱼主业务有一部分走 AMDC 下发的 IP 直连（无 SNI，Loon 不可见），按域名拦只掐掉另一部分；
-# 实测被拒后 App 仍可正常使用，当次未出开屏，但成因未定（可能只是频控没到）。
-# 观察期要盯两件事：
-#   a) 有没有静默降级 —— 消息收发、发布宝贝、搜索建议最容易出问题；
-#   b) 开屏是否稳定消失 —— 只要某次又出现，就说明广告数据不经过这台网关。
-# 出问题就把这一行注释掉（或换回旧版本合集）。
-DOMAIN,acs.m.goofish.com,REJECT,extended-matching,pre-matching
+# 已撤回（1.0.40）：整域 ban 闲鱼业务网关的试验结论是「无效」。
+# 1.0.39 带着 `DOMAIN,acs.m.goofish.com,REJECT` 跑了一轮，开屏广告照样出现——
+# 说明广告数据根本不经过这台网关（走 AMDC 下发的 IP 直连，无 SNI，Loon 不可见）。
+# 同时它会掐掉 `com.taobao.idle.user.init`（账号初始化）这类中性接口，没有收益只有风险。
+# 需要时再手工加回这一行做对照实验：
+# DOMAIN,acs.m.goofish.com,REJECT,extended-matching,pre-matching
 
 # 高德包内没有穿山甲 / 优量汇 / 快手联盟 / Sigmob / Mintegral 等三方联盟 SDK，
 # 开屏只有阿里妈妈自建一条来源，所以本文件不维护高德侧的联盟域名清单。

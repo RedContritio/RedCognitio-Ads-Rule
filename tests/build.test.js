@@ -195,17 +195,15 @@ test("build validates the version prefix and integer build component before writ
 
 // `# @debug-only-begin/end` 之间的行只进 Debug：用于没法用开关门控的 [Rule] 段
 // （例如 1.0.34 的「打断 ANet 长连接」实验，Loon 的 Rule 不支持 if ${switch}）。
-test("观察期配置：整域 ban 常驻，调查期的 MITM 主机已撤", () => {
+test("1.0.40：整域 ban 已撤回，调查期 MITM 主机也不再出现", () => {
   const active = (text) => text.split("\n").some(line => line.trim().startsWith("DOMAIN,acs.m.goofish.com,REJECT"));
   for (const file of ["RedCognitio-Ads.plugin", "RedCognitio-Ads-debug.plugin"]) {
     const text = fs.readFileSync(path.join(root, file), "utf8");
-    assert(active(text), `${file}: 观察期 ban 应常驻`);
+    assert(!active(text), `${file}: 无效的整域 ban 不应再启用`);
     assert(!text.includes("@debug-only-begin"), `${file}: 标记行不应落盘`);
-  }
-  const debug = fs.readFileSync(path.join(root, "RedCognitio-Ads-debug.plugin"), "utf8");
-  // 1.0.39 起撤掉调查期临时加的 MITM 主机，避免长期解密这些域
-  for (const host of ["ossgw.alicdn.com", "abtest.alibaba.com", "yixiu-abtest.alicdn.com"]) {
-    const mitm = debug.match(/\[MITM\]\nhostname = (.+)/)[1];
-    assert(!mitm.split(",").map(s => s.trim()).includes(host), `MITM 不应再含 ${host}`);
+    const mitm = text.match(/\[MITM\]\nhostname = (.+)/)[1].split(",").map(s => s.trim());
+    for (const host of ["ossgw.alicdn.com", "abtest.alibaba.com", "yixiu-abtest.alicdn.com"]) {
+      assert(!mitm.includes(host), `${file}: 不应再 MITM ${host}`);
+    }
   }
 });
