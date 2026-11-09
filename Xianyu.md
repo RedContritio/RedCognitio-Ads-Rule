@@ -235,17 +235,22 @@ AB 侧佐证：`AB_NEW_SPLASH_AD` 的 `[0,999999]` 分组同时给 `android_on=t
 
 ---
 
-## 实验开关：打断 ANet 长连接（仅 Debug 构建，1.0.34）
+## 实验开关：打断 ANet 长连接（1.0.34 上线，1.0.35 默认关闭）
 
-Loon 的 `[Rule]` 段不支持 `if ${switch} == true` 条件，所以这条实验没法挂在「闲鱼-调试」上，改成 **Debug 构建专属**：`build/RedCognitio-Ads.plugin.tpl` 里用 `# @debug-only-begin` / `# @debug-only-end` 包住，Release 构建由 `tools/build.mjs` 的 `applyDebugOnlyBlocks()` 整段剥掉（有测试守着）。
+Loon 的 `[Rule]` 段不支持 `if ${switch} == true`，所以这条实验只能做成构建级开关：模板里用 `# @debug-only-begin` / `# @debug-only-end` 包住，`tools/build.mjs` 的 `applyDebugOnlyBlocks()` 负责 Release 整段剥掉、Debug 保留。
 
-```ini
-DOMAIN,acs.m.goofish.com,REJECT,extended-matching,pre-matching
+**2026-11-09 15:46 实测结果（结论：行不通，已默认注释掉）**：
+
+```
+15:46:33.984  Reject domain:acs.m.goofish.com in DNS phase   （共 4 次）
 ```
 
-用途：验证「`splash.ads` / `splash.config` 请求是不是被 ANet 长连接带走了」。拒掉这台网关后，闲鱼会回落到 `acs.m.taobao.com`（包内 `RemoteConfigs.PROBE_HOSTS` 就是这两条），回落之后若 `splash` 请求出现 → 说明之前是被长连接隐藏的；若依旧 0 次而广告照播 → 素材来自本地（`MtopCachePrefetch` / MMKV / 沙盒），网络层到此为止。
+- 规则确实生效（DNS 阶段拒绝，不是 `match policy:REJECT`）；
+- 但闲鱼**没有**回落到 `acs.m.taobao.com` —— 那条只跑 `mtop.common.getTimestamp`（18 次）；
+- 业务接口全灭：整份日志 mtop 只有 `getTimestamp` 一种，其余全是 `atoken` / `amdc` / `experiment/allocate` 的 10 秒重试；
+- 表现就是「连首页都加载不出来」，自然也没有开屏。
 
-代价：实验期间闲鱼部分接口可能变慢或报错；验完换回 Release 构建即可（或把模板里那段删掉）。
+所以 `acs.m.goofish.com` 是闲鱼**唯一**业务网关，拿它做「逼出 splash 请求」的探针不成立，只能当「断网对照」用。要验证「开屏请求是否被本地缓存吃掉」，正确的对照是**重装闲鱼**（清掉 MMKV / prefetch 缓存）后首次冷启动，而不是断网关。
 
 ---
 

@@ -149,14 +149,13 @@ AND,((DOMAIN,amap-aos-info-nogw.amap.com),(PROTOCOL,QUIC)),REJECT
 # 两套都要拦 QUIC，否则下面的响应净化静默失效。域名层（穿山甲 / 优量汇 / TanX / 快手）见上方联盟段。
 AND,((DOMAIN-SUFFIX,goofish.com),(PROTOCOL,QUIC)),REJECT
 
+# 反证用实验（默认关闭，需要时手工取消注释，仅 Debug 构建保留）：
+# 2026-11-09 15:46 实测——把下面这条打开后，acs.m.goofish.com 在 DNS 阶段被拒（4 次），
+# 但闲鱼**不会**回落到 acs.m.taobao.com（那条只跑 mtop.common.getTimestamp），
+# 业务接口全灭、连首页都加载不出来。也就是说 `acs.m.goofish.com` 是闲鱼唯一业务网关，
+# 用它来「逼出 splash 请求」行不通，只能当「断网对照」用。
 # @debug-only-begin
-# 实验（1.0.34）：打断 ANet 长连接，强制 mtop 走短连接。
-# 用途：验证「splash.config/ads 请求是不是被 ANet 长连接带走了」——拒掉这台网关后，
-#   闲鱼会回落到 acs.m.taobao.com（包内 RemoteConfigs.PROBE_HOSTS 就是这两条），
-#   回落之后如果 splash 请求出现，说明之前是被长连接隐藏的。
-# 代价：实验期间闲鱼部分接口可能变慢或报错，验完请换回 Release 构建。
-# 只在 Debug 构建里存在（build.mjs 的 @debug-only 段会在 Release 整段剥掉）。
-DOMAIN,acs.m.goofish.com,REJECT,extended-matching,pre-matching
+# DOMAIN,acs.m.goofish.com,REJECT,extended-matching,pre-matching
 # @debug-only-end
 
 # 高德包内没有穿山甲 / 优量汇 / 快手联盟 / Sigmob / Mintegral 等三方联盟 SDK，
