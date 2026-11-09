@@ -231,6 +231,7 @@ grep -c "idlecommerce" RedCognitio-Ads.plugin                        # 0 → 装
 | [huijingfei/Shadowrocket-Rules](https://raw.githubusercontent.com/huijingfei/Shadowrocket-Rules/main/sr_app_ad.conf)（2026-11-09 复检） | `acs.m.goofish.com/gw/mtop.taobao.idlecommerce.splash` 与 `mtop.idle.idleadv.(.*)` 两条 `REJECT-DICT`；`cloud.video.taobao.com/vod/*.mp4` 素材规则 | 采纳 `idleadv` 覆盖范围（但改空池）；确认视频素材域是 `/play/` 而非 `/vod/`，社区写法漏了 |
 | [blackmatrix7 AllInOne](https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rewrite/Stash/AllInOne/AllInOne.stoverride)（同上） | `acs.m.taobao.com/gw/mtop.taobao.idle.home.welcome/` → reject | 采纳 `idle.home.welcome`（首页欢迎弹窗）做响应净化 |
 | [Y123456-hzy/GY AdBlock](https://gist.github.com/lok347/715284a45ac1667ae2ceffba6114e0be)（同上） | 闲鱼 `splash` 走响应脚本清容器；`acs.m.goofish.com` 进 `force-http-engine-hosts` | 印证「响应清洗而非 reject」的方向一致 |
+| 2026-11-09 12:24 本机日志（装 1.0.28 后） | 闲鱼 UA 的 `h-adashx.ut.taobao.com/upload` 2 分钟 **15 次**（曝光在），但 `idlecommerce`/`splash`/`idleadv`/`nextfresh` 仍 **0**，mtop 只有 19 条；`ossgw` 已能解密，抓到的是 `creatives-assets/…?getAvatar=1` 头像；全日志 `match policy:REJECT` **0 条**、`RemoteUDP proxy:DIRECT` 频繁 | 与 11-04 同一指纹：曝光在、拉取不在。新增认知：QUIC/UDP 这一轮**直通**（既没拒也没解密），开屏接口可能就藏在这条无日志链路里，见 `../LOG-REVIEW-20261109-1224-XIANYU.md` |
 | 2026-11-09 12:03 本机日志 | 清缓存后仍出广告，但全日志 `idlecommerce` / `idleadv` / `splash` 命中 **0**；启动首秒 `video.goofish.com` 12 条连接、3 秒后 `ossgw.alicdn.com`，另有阿里 IP 直连 `Titan sniff miss` 一批 | 开屏可能走 IP 直连（不可解密）或素材域直下；1.0.28 把 `ossgw.alicdn.com` 加进 MITM 观察，见 `../LOG-REVIEW-20261109-1203-XIANYU.md` |
 
 ### 网关主机名被社区规则修正
