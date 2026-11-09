@@ -23,9 +23,12 @@ test("三方监测厂商按后缀拦截，秒针子域不再漏网", () => {
   }
 });
 
-test("素材网关 ossgw.alicdn.com 进 MITM，便于观察开屏 creatives 路径", () => {
+test("调查期临时 MITM 的素材/AB 主机已撤（长期观察模式）", () => {
   for (const file of plugins) {
-    const mitm = fs.readFileSync(path.join(root, file), "utf8").match(/\[MITM\]\nhostname = (.+)/)[1];
-    assert(mitm.split(",").map(s => s.trim()).includes("ossgw.alicdn.com"), file);
+    const mitm = fs.readFileSync(path.join(root, file), "utf8").match(/\[MITM\]\nhostname = (.+)/)[1]
+      .split(",").map(s => s.trim());
+    for (const host of ["ossgw.alicdn.com", "abtest.alibaba.com", "yixiu-abtest.alicdn.com"]) {
+      assert(!mitm.includes(host), `${file}: 不应再 MITM ${host}`);
+    }
   }
 });

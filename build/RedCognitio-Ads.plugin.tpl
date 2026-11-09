@@ -154,15 +154,14 @@ AND,((DOMAIN-SUFFIX,goofish.com),(PROTOCOL,QUIC)),REJECT
 # 但闲鱼**不会**回落到 acs.m.taobao.com（那条只跑 mtop.common.getTimestamp），
 # 业务接口全灭、连首页都加载不出来。也就是说 `acs.m.goofish.com` 是闲鱼唯一业务网关，
 # 用它来「逼出 splash 请求」行不通，只能当「断网对照」用。
-# @debug-only-begin
-# 1.0.38 起默认启用：把闲鱼业务网关整域拒掉（DNS 阶段拒），用来验证「整域 ban」到底能不能当拦截手段。
-# 15:46 那次实测：App 仍可正常使用（走 AMDC 下发的 IP 直连），当次没出开屏。
-# 需要长时间（≥3 次冷启动 + 首页/搜索/详情/聊天/发布各走一遍）才能判断：
-#   a) 哪些功能会静默降级（消息、发布、搜索建议最容易出问题）；
-#   b) 开屏是否稳定消失 —— 若某次又出现，说明广告数据走 IP 直连，这条 ban 挡不住。
-# 想临时关掉：换装 Release 构建（本段不进 Release）。
+# 闲鱼业务网关整域拒（1.0.39 起常驻，Release 也带；2026-11-09 决定先跑 1–2 周观察）。
+# 背景：闲鱼主业务有一部分走 AMDC 下发的 IP 直连（无 SNI，Loon 不可见），按域名拦只掐掉另一部分；
+# 实测被拒后 App 仍可正常使用，当次未出开屏，但成因未定（可能只是频控没到）。
+# 观察期要盯两件事：
+#   a) 有没有静默降级 —— 消息收发、发布宝贝、搜索建议最容易出问题；
+#   b) 开屏是否稳定消失 —— 只要某次又出现，就说明广告数据不经过这台网关。
+# 出问题就把这一行注释掉（或换回旧版本合集）。
 DOMAIN,acs.m.goofish.com,REJECT,extended-matching,pre-matching
-# @debug-only-end
 
 # 高德包内没有穿山甲 / 优量汇 / 快手联盟 / Sigmob / Mintegral 等三方联盟 SDK，
 # 开屏只有阿里妈妈自建一条来源，所以本文件不维护高德侧的联盟域名清单。
@@ -509,4 +508,4 @@ response if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.(?:taobao\.idle(?:
 response if ${amap_debug} == true && ${url} ~= /\/ws\/(?:valueadded|aos)\/alimama\/splash_screen/i then script("{{scripts}}/amap-dump.js?v={{version}}", {${amap_debug}}) with tag="高德开屏诊断", requires_body=true
 
 [MITM]
-hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, ossgw.alicdn.com, abtest.alibaba.com, yixiu-abtest.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com, m5.amap.com, m5-x.amap.com, amap-aos-info-nogw.amap.com, goofish.com, *.goofish.com, missav.ws, *.missav.ws, missav123.com, *.missav123.com, missav.ai, *.missav.ai, missav.live, *.missav.live, 18av.mm-cg.com, *.18av.mm-cg.com, njav.tv, *.njav.tv, 123av.com, *.123av.com, javdb.com, *.javdb.com, javbus.com, *.javbus.com, jav321.com, *.jav321.com, javgg.net, *.javgg.net, supjav.com, *.supjav.com, javlibrary.com, *.javlibrary.com, avmoo.com, *.avmoo.com, tellme.pw, ios-api.duolingo.com, ios-api-1.duolingo.com, ios-api-2.duolingo.com, ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo.cn, midas-bandits-prod.duolingo.cn
+hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com, m5.amap.com, m5-x.amap.com, amap-aos-info-nogw.amap.com, goofish.com, *.goofish.com, missav.ws, *.missav.ws, missav123.com, *.missav123.com, missav.ai, *.missav.ai, missav.live, *.missav.live, 18av.mm-cg.com, *.18av.mm-cg.com, njav.tv, *.njav.tv, 123av.com, *.123av.com, javdb.com, *.javdb.com, javbus.com, *.javbus.com, jav321.com, *.jav321.com, javgg.net, *.javgg.net, supjav.com, *.supjav.com, javlibrary.com, *.javlibrary.com, avmoo.com, *.avmoo.com, tellme.pw, ios-api.duolingo.com, ios-api-1.duolingo.com, ios-api-2.duolingo.com, ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo.cn, midas-bandits-prod.duolingo.cn
