@@ -226,7 +226,7 @@ grep -c "idlecommerce" RedCognitio-Ads.plugin                        # 0 → 装
 | 冷启动「曝光在、请求不在」的机制是 **`MtopCachePrefetch.usePrefetch()` 命中**：命中即用缓存直接展示并 return，不发 `splash.ads` | `SplashAdController.requestAndShow()` |
 | 预取总闸是 AB `SPLASH_AD_PREFETCH.is_on` | `com/taobao/fleamarket/swtch/SplashAdPrefetchSwitch` + `registerHotStart()` |
 | 热启动开屏总闸是 Orange 组 `splash_ad` 的 `disableHotStart`，另有 `splashCoverOn` / `thirdAdPlusOn` / `thirdCsjOn` / `thirdYlhOn` | `com/taobao/fleamarket/swtch/NewSplashAdOrange` |
-| Orange 配置走 **ANet preset host**（`orange-dc.m.taobao.com/api/config` 在 `TaobaoNetworkAdapter` 的 preset/long-amdc 白名单里），日志里只有 DNS → **MITM 改不到** | `anet/channel/TaobaoNetworkAdapter.java` + 两份本机日志 |
+| Orange 配置走 **ANet**（`com/taobao/orange/sync/NetworkInterceptor` 实现 `anetwork.channel.interceptor.Interceptor`；会话协议在 `ConnType` 里是 spdy/h2/http3/quic），日志里只有 DNS → **MITM 改不到**：不是加密问题，是帧不是 HTTP | `com/taobao/orange/sync/NetworkInterceptor.java`、`anet/channel/entity/ConnType.java`、`anet/channel/Session#sendCustomFrame` |
 | 三方开屏有硬编码广告位兜底：`adPlusSpaceId=115982`、`ylhSpaceId=2138110733853185` | `splashad/tool/ConfigCache`（SP `splash_ad_config_cache`） |
 | 开屏状态分散在 4 个 SP（`splash_ad_prefetch` / `splash_ad_orange` / `splash_ad_config_cache` / `splash_ad_preview`）→ App 内「清除缓存」清不到 | 同上各类的 `getSharedPreference` |
 
