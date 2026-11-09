@@ -255,6 +255,25 @@ AB 侧佐证：`AB_NEW_SPLASH_AD` 的 `[0,999999]` 分组同时给 `android_on=t
 
 ---
 
+## AMDC 响应为什么读不出来，以及 1.0.37 的对策
+
+1.0.36 抓到 45 条 AMDC 响应，全部是 **base64(zstd)**：解码后 magic `28 b5 2f fd`，FHD 的 `Dictionary_ID_flag=3`（带非零 dictID）。把 dictID 抹掉再解，zstd 直接报 `Dictionary is corrupted` —— 说明**真的用字典压的**，而字典不在包里：
+
+- `dex`（11 个）、`assets`（base APK 153 MB 全解）、`lib/arm64-v8a` 156 个 `.so` 全部检索 `37 a4 30 ec`（zstd 字典 magic）→ **0 命中**；
+- 所以字典要么由 `mtop` 动态 bundle 下发，要么在 iOS 侧另有实现。
+
+绕过办法（1.0.37，仅 Debug 构建）：把 AMDC 请求的 `cv` 由 1 改成 0——
+
+```ini
+request if ${xianyu_debug} == true && ${url} ~= /^(.+[?&]cv=)1(.*)$/i as amdcCv then url.replace("${amdcCv.1}0${amdcCv.2}")
+```
+
+若 `cv=0` 返回明文 JSON，就能直接读到 `dns` / `service` 字段里的网关 IP、协议与权重，不必再碰压缩。
+
+顺带确认：**不带设备签名直接 curl AMDC 只会拿到 `{"code":1001,"dns":[],"service":[]}`**（164 B），说明调度结果与设备签名绑定，必须从真机侧读。
+
+---
+
 ## 实验开关：打断 ANet 长连接（1.0.34 上线，1.0.35 默认关闭）
 
 Loon 的 `[Rule]` 段不支持 `if ${switch} == true`，所以这条实验只能做成构建级开关：模板里用 `# @debug-only-begin` / `# @debug-only-end` 包住，`tools/build.mjs` 的 `applyDebugOnlyBlocks()` 负责 Release 整段剥掉、Debug 保留。

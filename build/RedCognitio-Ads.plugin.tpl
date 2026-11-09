@@ -477,6 +477,13 @@ response if ${xianyu_debug} == true && ${url} ~= /^https:\/\/yixiu-abtest\.alicd
 # **一个都不在包里**（7.28.86 strings 检索为 0）→ 由 AMDC 调度下发。AMDC 本身是**明文 HTTP**
 # （http://<ip>/amdc/mobileDispatch?appkey=12431167&v=6.5&appVersion=7.28.80&cv=1），
 # 所以它的响应可以被脚本读出来：里面就有网关 IP、协议（spdy/h2/quic）、权重与降级开关。
+# AMDC 响应是 base64(zstd) 且带非零 dictID，包里找不到对应字典（7.28.86 的 dex/assets/156 个 .so
+# 里都没有 zstd 字典 magic 37a430ec）→ 本机解不开。先把请求的 `cv` 从 1 改成 0 试一轮：
+# 若 cv=0 返回明文 JSON（`{"code":…,"dns":[…],"service":[…]}`），就不用管压缩了。
+# @debug-only-begin
+request if ${xianyu_debug} == true && ${url} ~= /^(.+[?&]cv=)1(.*)$/i as amdcCv then url.replace("${amdcCv.1}0${amdcCv.2}")
+# @debug-only-end
+
 request if ${xianyu_debug} == true && ${url} ~= /\/amdc\/mobileDispatch/i then script("{{scripts}}/xianyu-debug.js?v={{version}}", {${xianyu_debug}}) with tag="AMDC 调度请求"
 response if ${xianyu_debug} == true && ${url} ~= /\/amdc\/mobileDispatch/i then script("{{scripts}}/xianyu-dump.js?v={{version}}", {${xianyu_debug}}) with tag="AMDC 调度响应抓取", requires_body=true
 
