@@ -24,6 +24,19 @@ export function validateMetadata(metadata) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(metadata.date)) throw new Error("构建日期须为 YYYY-MM-DD");
 }
 
+// `# @debug-only-begin` / `# @debug-only-end` 之间的行只进 Debug 构建。
+// 用于那些没法用开关门控的东西（例如 [Rule] 段：Loon 的 Rule 不吃 `if ${switch} == true` 条件）。
+export function applyDebugOnlyBlocks(lines, debug) {
+  const kept = [];
+  let skipping = false;
+  for (const line of lines) {
+    if (/^\s*#\s*@debug-only-begin/.test(line)) { skipping = true; continue; }
+    if (/^\s*#\s*@debug-only-end/.test(line)) { skipping = false; continue; }
+    if (!skipping || debug) kept.push(line);
+  }
+  return kept;
+}
+
 export async function generateArtifacts(metadata, sourceRoot = root) {
   validateMetadata(metadata);
   const template = fs.readFileSync(path.join(sourceRoot, "build/RedCognitio-Ads.plugin.tpl"), "utf8");
@@ -53,9 +66,10 @@ export async function generateArtifacts(metadata, sourceRoot = root) {
         mirror_desc: mirror.label ? `；${mirror.label}` : "",
         scripts: `${mirror.base}/dist/${mode}/scripts`,
       };
-      let plugin = template;
+      let plugin = applyDebugOnlyBlocks(template.split("\n"), debug).join("\n");
       if (!debug) {
-        plugin = plugin.split("\n").filter(line =>
+        plugin = applyDebugOnlyBlocks(plugin.split("\n"), false);
+        plugin = plugin.filter(line =>
           !/^\w+_debug = /.test(line) && !debugOnlyScripts.some(script => line.includes(script))
         ).join("\n");
         plugin = plugin.replaceAll(", ${zhihu_debug}", "")

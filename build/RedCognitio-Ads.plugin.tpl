@@ -149,6 +149,16 @@ AND,((DOMAIN,amap-aos-info-nogw.amap.com),(PROTOCOL,QUIC)),REJECT
 # 两套都要拦 QUIC，否则下面的响应净化静默失效。域名层（穿山甲 / 优量汇 / TanX / 快手）见上方联盟段。
 AND,((DOMAIN-SUFFIX,goofish.com),(PROTOCOL,QUIC)),REJECT
 
+# @debug-only-begin
+# 实验（1.0.34）：打断 ANet 长连接，强制 mtop 走短连接。
+# 用途：验证「splash.config/ads 请求是不是被 ANet 长连接带走了」——拒掉这台网关后，
+#   闲鱼会回落到 acs.m.taobao.com（包内 RemoteConfigs.PROBE_HOSTS 就是这两条），
+#   回落之后如果 splash 请求出现，说明之前是被长连接隐藏的。
+# 代价：实验期间闲鱼部分接口可能变慢或报错，验完请换回 Release 构建。
+# 只在 Debug 构建里存在（build.mjs 的 @debug-only 段会在 Release 整段剥掉）。
+DOMAIN,acs.m.goofish.com,REJECT,extended-matching,pre-matching
+# @debug-only-end
+
 # 高德包内没有穿山甲 / 优量汇 / 快手联盟 / Sigmob / Mintegral 等三方联盟 SDK，
 # 开屏只有阿里妈妈自建一条来源，所以本文件不维护高德侧的联盟域名清单。
 # 素材 CDN（gw.alicdn.com / aoscdn.amap.com / aos-cdn-image.amap.com）与地图皮肤、

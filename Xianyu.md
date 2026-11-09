@@ -235,6 +235,20 @@ AB 侧佐证：`AB_NEW_SPLASH_AD` 的 `[0,999999]` 分组同时给 `android_on=t
 
 ---
 
+## 实验开关：打断 ANet 长连接（仅 Debug 构建，1.0.34）
+
+Loon 的 `[Rule]` 段不支持 `if ${switch} == true` 条件，所以这条实验没法挂在「闲鱼-调试」上，改成 **Debug 构建专属**：`build/RedCognitio-Ads.plugin.tpl` 里用 `# @debug-only-begin` / `# @debug-only-end` 包住，Release 构建由 `tools/build.mjs` 的 `applyDebugOnlyBlocks()` 整段剥掉（有测试守着）。
+
+```ini
+DOMAIN,acs.m.goofish.com,REJECT,extended-matching,pre-matching
+```
+
+用途：验证「`splash.ads` / `splash.config` 请求是不是被 ANet 长连接带走了」。拒掉这台网关后，闲鱼会回落到 `acs.m.taobao.com`（包内 `RemoteConfigs.PROBE_HOSTS` 就是这两条），回落之后若 `splash` 请求出现 → 说明之前是被长连接隐藏的；若依旧 0 次而广告照播 → 素材来自本地（`MtopCachePrefetch` / MMKV / 沙盒），网络层到此为止。
+
+代价：实验期间闲鱼部分接口可能变慢或报错；验完换回 Release 构建即可（或把模板里那段删掉）。
+
+---
+
 ## 包内静态分析：开屏开关在哪（2026-11-09）
 
 样本 `samples/xianyu/xianyu.xapk`（apktool + jadx，见 `../XIANYU-STATIC-ANALYSIS-20261109.md`）。代码级结论：
