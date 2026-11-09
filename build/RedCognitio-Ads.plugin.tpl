@@ -97,17 +97,21 @@ DOMAIN-SUFFIX,xinqiucc.com,REJECT,extended-matching,pre-matching
 
 
 # 三方广告监测厂商（AWAvenue 等未覆盖）
-DOMAIN,admaster.com.cn,REJECT,extended-matching,pre-matching
-DOMAIN,attri.mobi,REJECT,extended-matching,pre-matching
+# 这些是三方监测/归因厂商，SDK 会轮换子域，必须 DOMAIN-SUFFIX。
+# 2026-11-09 12:03 日志实证：`DOMAIN,miaozhen.com` 写成精确匹配，子域 `yktd.m.cn.miaozhen.com`
+# 直接走 `match policy:DIRECT`（2 次），而同族的 `g.cn.miaozhen.com` 被 AWAvenue 的显式条目拒掉——
+# 说明精确匹配形同虚设。整块统一改成 DOMAIN-SUFFIX。
+DOMAIN-SUFFIX,admaster.com.cn,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,attri.mobi,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,rtbasia.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,hegek7.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,adbug.cn,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,gridsum.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,miaozhen.com,REJECT,extended-matching,pre-matching
+DOMAIN-SUFFIX,doubleclick.net,REJECT,extended-matching,pre-matching
+# mmstat.com（阿里妈妈）保持精确匹配：子域承担淘宝客归因，整域封会把归因一起断掉，
+# 需要先评估对我们自己的淘宝/闲鱼用法有没有影响。
 DOMAIN,mmstat.com,REJECT,extended-matching,pre-matching
-DOMAIN,rtbasia.com,REJECT,extended-matching,pre-matching
-DOMAIN,hegek7.com,REJECT,extended-matching,pre-matching
-DOMAIN,adbug.cn,REJECT,extended-matching,pre-matching
-DOMAIN,gridsum.com,REJECT,extended-matching,pre-matching
-
-# 以下两条通用规则集只封了子域，未封主域；SDK 会轮换子域，故封主域
-DOMAIN,miaozhen.com,REJECT,extended-matching,pre-matching
-DOMAIN,doubleclick.net,REJECT,extended-matching,pre-matching
 
 # 已由 AWAvenue 精确覆盖，停用该规则集时取消注释
 # DOMAIN,iadmusicmat.music.126.net,REJECT
@@ -450,4 +454,4 @@ response if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.(?:taobao\.idle(?:
 response if ${amap_debug} == true && ${url} ~= /\/ws\/(?:valueadded|aos)\/alimama\/splash_screen/i then script("{{scripts}}/amap-dump.js?v={{version}}", {${amap_debug}}) with tag="高德开屏诊断", requires_body=true
 
 [MITM]
-hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com, m5.amap.com, m5-x.amap.com, amap-aos-info-nogw.amap.com, goofish.com, *.goofish.com, missav.ws, *.missav.ws, missav123.com, *.missav123.com, missav.ai, *.missav.ai, missav.live, *.missav.live, 18av.mm-cg.com, *.18av.mm-cg.com, njav.tv, *.njav.tv, 123av.com, *.123av.com, javdb.com, *.javdb.com, javbus.com, *.javbus.com, jav321.com, *.jav321.com, javgg.net, *.javgg.net, supjav.com, *.supjav.com, javlibrary.com, *.javlibrary.com, avmoo.com, *.avmoo.com, tellme.pw, ios-api.duolingo.com, ios-api-1.duolingo.com, ios-api-2.duolingo.com, ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo.cn, midas-bandits-prod.duolingo.cn
+hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, ossgw.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com, m5.amap.com, m5-x.amap.com, amap-aos-info-nogw.amap.com, goofish.com, *.goofish.com, missav.ws, *.missav.ws, missav123.com, *.missav123.com, missav.ai, *.missav.ai, missav.live, *.missav.live, 18av.mm-cg.com, *.18av.mm-cg.com, njav.tv, *.njav.tv, 123av.com, *.123av.com, javdb.com, *.javdb.com, javbus.com, *.javbus.com, jav321.com, *.jav321.com, javgg.net, *.javgg.net, supjav.com, *.supjav.com, javlibrary.com, *.javlibrary.com, avmoo.com, *.avmoo.com, tellme.pw, ios-api.duolingo.com, ios-api-1.duolingo.com, ios-api-2.duolingo.com, ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo.cn, midas-bandits-prod.duolingo.cn
