@@ -444,6 +444,15 @@ response if ${duolingo_debug} == true && ${url} ~= /^https?:\/\/(?:ios-api-[a-z0
 response if ${duolingo_debug} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9.-]*duolingo\.c(?:n|om)\/(?:.*\/)?(?:plus-promotions|subscription-catalog|available-features)|midas-bandits-prod\.duolingo\.cn\/)/i then script("{{scripts}}/duolingo-dump.js?v={{version}}", {${duolingo_debug}}) with tag="多邻国决策诊断", requires_body=true
 
 
+# 闲鱼开关面诊断（仅 Debug 构建，1.0.29）。包内静态分析（samples/xianyu，jadx）确认：
+#   开屏总闸在 Orange 组 `splash_ad`（NewSplashAdOrange：disableHotStart / splashCoverOn /
+#   thirdAdPlusOn / thirdCsjOn / thirdYlhOn），预取总闸在 AB `SPLASH_AD_PREFETCH.is_on`
+#   （SplashAdPrefetchSwitch），AB 走 `mtop.alibaba.motu.ab.config.get`。
+# Orange 的 `orange-dc.m.taobao.com/api/config` 是 ANet preset host（长连接），日志里只有 DNS；
+# AB 是 mtop/HTTPS，理论上可改写响应——先抓一轮看真实结构再写 jq。
+request if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.(?:alibaba\.motu\.ab\.config\.get|taobao\.idle\.ab\.config\.get|taobao\.idle\.mach\.advertise\.[a-z.]+|taobao\.idle\.play\.ad\.event\.[a-z]+|taobao\.idlehome\.home\.pop\.interest\.upload)\//i then script("{{scripts}}/xianyu-debug.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼开关面请求诊断"
+response if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.(?:alibaba\.motu\.ab\.config\.get|taobao\.idle\.ab\.config\.get|taobao\.idle\.mach\.advertise\.[a-z.]+|taobao\.idle\.play\.ad\.event\.[a-z]+|taobao\.idlehome\.home\.pop\.interest\.upload)\//i then script("{{scripts}}/xianyu-dump.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼开关面响应抓取", requires_body=true
+
 # 闲鱼：广告接口诊断（仅 Debug 构建）。XYDEBUG 请求行 / XYDUMP 完整响应 / XYFEED 卡片结构
 request if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.taobao\.idlecommerce\.(splash(?:\.async)?\.ads|adx\.bid|game\.iaa\.ads)/i then script("{{scripts}}/xianyu-debug.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼请求诊断"
 response if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.taobao\.idlecommerce\.(splash(?:\.async)?\.ads|adx\.bid|game\.iaa\.ads)/i then script("{{scripts}}/xianyu-dump.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼响应抓取", requires_body=true

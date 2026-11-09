@@ -217,6 +217,23 @@ grep -c "idlecommerce" RedCognitio-Ads.plugin                        # 0 → 装
 4. 装规则后清一次 App 缓存，再冷启动 3~5 次，确认开屏消失且首页、详情、搜索、消息、交易正常。
 5. 若开屏仍在：先看 `splash.ads` 是否命中 rewrite；再看是否只剩三方 SDK 直投（此时补域名段）。
 
+## 包内静态分析：开屏开关在哪（2026-11-09）
+
+样本 `samples/xianyu/xianyu.xapk`（apktool + jadx，见 `../XIANYU-STATIC-ANALYSIS-20261109.md`）。代码级结论：
+
+| 结论 | 依据 |
+|---|---|
+| 冷启动「曝光在、请求不在」的机制是 **`MtopCachePrefetch.usePrefetch()` 命中**：命中即用缓存直接展示并 return，不发 `splash.ads` | `SplashAdController.requestAndShow()` |
+| 预取总闸是 AB `SPLASH_AD_PREFETCH.is_on` | `com/taobao/fleamarket/swtch/SplashAdPrefetchSwitch` + `registerHotStart()` |
+| 热启动开屏总闸是 Orange 组 `splash_ad` 的 `disableHotStart`，另有 `splashCoverOn` / `thirdAdPlusOn` / `thirdCsjOn` / `thirdYlhOn` | `com/taobao/fleamarket/swtch/NewSplashAdOrange` |
+| Orange 配置走 **ANet preset host**（`orange-dc.m.taobao.com/api/config` 在 `TaobaoNetworkAdapter` 的 preset/long-amdc 白名单里），日志里只有 DNS → **MITM 改不到** | `anet/channel/TaobaoNetworkAdapter.java` + 两份本机日志 |
+| 三方开屏有硬编码广告位兜底：`adPlusSpaceId=115982`、`ylhSpaceId=2138110733853185` | `splashad/tool/ConfigCache`（SP `splash_ad_config_cache`） |
+| 开屏状态分散在 4 个 SP（`splash_ad_prefetch` / `splash_ad_orange` / `splash_ad_config_cache` / `splash_ad_preview`）→ App 内「清除缓存」清不到 | 同上各类的 `getSharedPreference` |
+
+因此与知乎的差异：知乎的广告总闸在 HTTPS 的 `config/all`（可改写），闲鱼的橙子配置在长连接里（改不到）；唯一走 mtop 的开关是 AB 的预取闸。1.0.29 起「闲鱼-调试」增抓 `mtop.alibaba.motu.ab.config.get` / `mtop.taobao.idle.ab.config.get` / `idle.mach.advertise.*` / `idle.play.ad.event.*` / `idlehome.home.pop.interest.upload`，先看清 AB 结构再决定要不要改 `is_on`。
+
+---
+
 ## 社区方案对照（2026-10-26）
 
 搜到的三个相关仓库，结论直接改写了首版设计：
