@@ -235,6 +235,26 @@ AB 侧佐证：`AB_NEW_SPLASH_AD` 的 `[0,999999]` 分组同时给 `android_on=t
 
 ---
 
+## 请求为什么看不见：域名是写死的，IP 是 AMDC 发的（1.0.36）
+
+用户质疑得对——包里不可能全动态。7.28.86 检索结果：
+
+| 类别 | 包里写死的 | 出现次数 |
+|---|---|---|
+| mtop 网关域名 | `acs.m.taobao.com` / `guide-acs.m.taobao.com` / `acs.wapa.taobao.com` / `g-acs.m.goofish.com` / `g-acs.wapa.goofish.com` / `acs.wapa.goofish.com` / `acs.m.goofish.com` | 45 / 23 / 6 / 1 / 1 / 1 / 1 |
+| 调度域名 | `amdc.m.taobao.com` / `amdc.alipay.com` / `amdc.wapa.taobao.com` / `amdc.taobao.net` | 3 / 5 / 1 / 1 |
+| 素材/页面 | `gw.alicdn.com` 373、`img.alicdn.com` 63、`ossgw.alicdn.com` 54、`heic.alicdn.com` 19、`cloud.video.taobao.com` 14 … | — |
+| 硬编码 IP | `203.107.1.1`（阿里 DNS）、`47.246.64.x`/`47.246.103.x` 一批、`59.82.31.182`、`203.119.244.197` | 少量 |
+
+而日志里真正连的那些 IP —— `59.82.113.219`、`203.119.238.12`、`14.29.63.50`、`59.82.9.32` —— **在包里检索结果为 0**。也就是说：
+
+- **域名层是写死的**（可以拦、可以 MITM）；
+- **IP 层是 AMDC 下发的**，而 **AMDC 走明文 HTTP**（`http://59.82.113.219/amdc/mobileDispatch?appkey=12431167&v=6.5&appVersion=7.28.80&cv=1`）。
+
+所以在 1.0.36 里给 AMDC 加了 request/response 抓取（`XYDEBUG` / `XYDUMP`）：它的响应里就有网关 IP、协议（spdy/h2/quic）、权重和降级开关——这才是“为什么请求走了 IP 直连”的源头，也是「能不能把流量赶回可 MITM 的命名主机」的唯一依据。
+
+---
+
 ## 实验开关：打断 ANet 长连接（1.0.34 上线，1.0.35 默认关闭）
 
 Loon 的 `[Rule]` 段不支持 `if ${switch} == true`，所以这条实验只能做成构建级开关：模板里用 `# @debug-only-begin` / `# @debug-only-end` 包住，`tools/build.mjs` 的 `applyDebugOnlyBlocks()` 负责 Release 整段剥掉、Debug 保留。

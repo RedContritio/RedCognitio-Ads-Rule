@@ -471,6 +471,15 @@ response if ${duolingo_debug} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9.-]*du
 request if ${xianyu_debug} == true && ${url} ~= /^https:\/\/yixiu-abtest\.alicdn\.com\/ut-abtest\/config\//i then script("{{scripts}}/xianyu-debug.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼 AB 配置文件请求"
 response if ${xianyu_debug} == true && ${url} ~= /^https:\/\/yixiu-abtest\.alicdn\.com\/ut-abtest\/config\//i then script("{{scripts}}/xianyu-dump.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼 AB 配置文件抓取", requires_body=true
 
+# AMDC 调度响应抓取（仅 Debug 构建）。这是「请求为什么看不见」的源头：
+# 包内硬编码的只有域名（acs.m.goofish.com / g-acs.m.goofish.com / acs.wapa.goofish.com /
+# amdc.m.taobao.com …），而实际连接的 IP（59.82.113.219、203.119.238.12、14.29.63.50 …）
+# **一个都不在包里**（7.28.86 strings 检索为 0）→ 由 AMDC 调度下发。AMDC 本身是**明文 HTTP**
+# （http://<ip>/amdc/mobileDispatch?appkey=12431167&v=6.5&appVersion=7.28.80&cv=1），
+# 所以它的响应可以被脚本读出来：里面就有网关 IP、协议（spdy/h2/quic）、权重与降级开关。
+request if ${xianyu_debug} == true && ${url} ~= /\/amdc\/mobileDispatch/i then script("{{scripts}}/xianyu-debug.js?v={{version}}", {${xianyu_debug}}) with tag="AMDC 调度请求"
+response if ${xianyu_debug} == true && ${url} ~= /\/amdc\/mobileDispatch/i then script("{{scripts}}/xianyu-dump.js?v={{version}}", {${xianyu_debug}}) with tag="AMDC 调度响应抓取", requires_body=true
+
 request if ${xianyu_debug} == true && ${url} ~= /^https:\/\/abtest\.alibaba\.com\/v[0-9.]+\/api\/experiment\/allocate/i then script("{{scripts}}/xianyu-debug.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼 AB 实验分配请求"
 response if ${xianyu_debug} == true && ${url} ~= /^https:\/\/abtest\.alibaba\.com\/v[0-9.]+\/api\/experiment\/allocate/i then script("{{scripts}}/xianyu-dump.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼 AB 实验分配抓取", requires_body=true
 
