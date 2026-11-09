@@ -455,6 +455,13 @@ response if ${duolingo_debug} == true && ${url} ~= /^https?:\/\/(?:[a-z0-9.-]*du
 # （闲鱼 UA，约每 10 秒一次）。它是普通 HTTPS，**是「AB 闸」最可能的可改写入口**——
 # 开屏预取闸 SplashAdPrefetchSwitch 走 PABTest，若实验值由这里下发，改响应即可关掉预取。
 # 先抓一轮看实验列表里有没有 SPLASH_AD_PREFETCH / is_on。
+# AB 实验配置文件（仅 Debug 构建）。`experiment/allocate` 只返回**文件地址**：
+#   https://yixiu-abtest.alicdn.com/ut-abtest/config/v31-config/online/idlefish/{version}.json
+# 实验值（如 AB_SPLASH_AD_PREFETCH 的 is_on/bucket_id）都在这个 JSON 里，allocate 响应带 md5，
+# 所以「改文件」会被校验挡住，能改的是 allocate 那层。先把文件请求抓下来确认客户端真的在拉、拉的是哪一版。
+request if ${xianyu_debug} == true && ${url} ~= /^https:\/\/yixiu-abtest\.alicdn\.com\/ut-abtest\/config\//i then script("{{scripts}}/xianyu-debug.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼 AB 配置文件请求"
+response if ${xianyu_debug} == true && ${url} ~= /^https:\/\/yixiu-abtest\.alicdn\.com\/ut-abtest\/config\//i then script("{{scripts}}/xianyu-dump.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼 AB 配置文件抓取", requires_body=true
+
 request if ${xianyu_debug} == true && ${url} ~= /^https:\/\/abtest\.alibaba\.com\/v[0-9.]+\/api\/experiment\/allocate/i then script("{{scripts}}/xianyu-debug.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼 AB 实验分配请求"
 response if ${xianyu_debug} == true && ${url} ~= /^https:\/\/abtest\.alibaba\.com\/v[0-9.]+\/api\/experiment\/allocate/i then script("{{scripts}}/xianyu-dump.js?v={{version}}", {${xianyu_debug}}) with tag="闲鱼 AB 实验分配抓取", requires_body=true
 
@@ -471,4 +478,4 @@ response if ${xianyu_debug} == true && ${url} ~= /\/gw\/mtop\.(?:taobao\.idle(?:
 response if ${amap_debug} == true && ${url} ~= /\/ws\/(?:valueadded|aos)\/alimama\/splash_screen/i then script("{{scripts}}/amap-dump.js?v={{version}}", {${amap_debug}}) with tag="高德开屏诊断", requires_body=true
 
 [MITM]
-hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, ossgw.alicdn.com, abtest.alibaba.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com, m5.amap.com, m5-x.amap.com, amap-aos-info-nogw.amap.com, goofish.com, *.goofish.com, missav.ws, *.missav.ws, missav123.com, *.missav123.com, missav.ai, *.missav.ai, missav.live, *.missav.live, 18av.mm-cg.com, *.18av.mm-cg.com, njav.tv, *.njav.tv, 123av.com, *.123av.com, javdb.com, *.javdb.com, javbus.com, *.javbus.com, jav321.com, *.jav321.com, javgg.net, *.javgg.net, supjav.com, *.supjav.com, javlibrary.com, *.javlibrary.com, avmoo.com, *.avmoo.com, tellme.pw, ios-api.duolingo.com, ios-api-1.duolingo.com, ios-api-2.duolingo.com, ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo.cn, midas-bandits-prod.duolingo.cn
+hostname = zhihu.com, *.zhihu.com, taobao.com, *.taobao.com, *.tmall.com, heic.alicdn.com, ossgw.alicdn.com, abtest.alibaba.com, yixiu-abtest.alicdn.com, poplayer.template.alibaba.com, music.163.com, *.music.163.com, ipv4.music.163.com, ipv6.music.163.com, manhuabika.com, *.manhuabika.com, picacomic.com, www.picacomic.com, m5.amap.com, m5-x.amap.com, amap-aos-info-nogw.amap.com, goofish.com, *.goofish.com, missav.ws, *.missav.ws, missav123.com, *.missav123.com, missav.ai, *.missav.ai, missav.live, *.missav.live, 18av.mm-cg.com, *.18av.mm-cg.com, njav.tv, *.njav.tv, 123av.com, *.123av.com, javdb.com, *.javdb.com, javbus.com, *.javbus.com, jav321.com, *.jav321.com, javgg.net, *.javgg.net, supjav.com, *.supjav.com, javlibrary.com, *.javlibrary.com, avmoo.com, *.avmoo.com, tellme.pw, ios-api.duolingo.com, ios-api-1.duolingo.com, ios-api-2.duolingo.com, ios-api-cf.duolingo.com, api.duolingo.com, api2.duolingo.com, ios-api-2.duolingo.cn, midas-bandits-prod.duolingo.cn
